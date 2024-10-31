@@ -12,6 +12,7 @@ export const ARTIFACT_BUCKET_NAME = `${LIBRARY_NAMESPACE}-artifact-bucket`;
 export const ARTIFACT_BUCKET_KEY_NAME = `${LIBRARY_NAMESPACE}-artifact-key`;
 export const ARTIFACT_BUCKET_KEY_ALIAS = `${LIBRARY_NAMESPACE}-artifact-key-alias`;
 export const OUTER_PIPELINE_NAME = 'Uniform_Outer_Pipeline';
+export const CHANGESET_RENAME_MACRO = `${LIBRARY_NAMESPACE}-changeset-rename-macro`;
 
 export enum StackExports {
     PIPELINE_SOURCE_BUCKET_ARN_REF = `${LIBRARY_NAMESPACE}-source-bucket-arn-ref`,

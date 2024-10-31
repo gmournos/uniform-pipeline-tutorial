@@ -1,4 +1,3 @@
-import * as cdk from 'aws-cdk-lib';
 import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as cpactions from 'aws-cdk-lib/aws-codepipeline-actions';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
@@ -11,6 +10,7 @@ import { COMMON_REPO, DOMAIN_NAME, OUTER_PIPELINE_NAME, TargetEnvironments,
 import { IRole } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Key } from 'aws-cdk-lib/aws-kms';
+import { CfnCapabilities } from 'aws-cdk-lib';
 
 interface OuterLevelPipelineStackProps {
     sourceBucketArn: string;
@@ -102,8 +102,8 @@ export class OuterLevelPipelineConstruct extends Construct {
             stackName: `${targetStackName}-${replacedTargetStackVersion}-${LIBRARY_NAMESPACE}-stack`,
             adminPermissions: false,
             role: props.actionsRole,
-            cfnCapabilities: [cdk.CfnCapabilities.NAMED_IAM],
             deploymentRole: props.deploymentRole,
+            cfnCapabilities: [CfnCapabilities.AUTO_EXPAND, CfnCapabilities.NAMED_IAM],
         });
 
         // Create the pipeline
