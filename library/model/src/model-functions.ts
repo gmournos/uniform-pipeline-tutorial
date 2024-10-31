@@ -97,3 +97,12 @@ export const getTargetEnvironmentsEnvVariablesAsObject = (): Record<string, stri
     });
     return env as Record<string, string>;
 };
+
+export const makeVersionedPipelineName = (containedStackName: string, containedStackVersion: string) => {
+    return `${containedStackName}-${containedStackVersion.replace(/\./g, '-')}-${LIBRARY_NAMESPACE}`; 
+}
+
+export const makeVersionedPipelineStackName = (containedStackName: string, containedStackVersion: string) => {
+    return `${containedStackName}-${containedStackVersion.replace(/\./g, '-')}-${LIBRARY_NAMESPACE}-stack`; 
+}
+

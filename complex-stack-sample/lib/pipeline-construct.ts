@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { StackProps, Stack, Stage, Fn } from 'aws-cdk-lib';
+import { StackProps, Stack, Stage, Fn, Tags } from 'aws-cdk-lib';
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { ComplexStackSampleStack } from './complex-stack-sample-stack';
 import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsObject, 
@@ -11,15 +11,18 @@ import { Key } from 'aws-cdk-lib/aws-kms';
 import { KmsAliasArnReaderConstruct } from '@uniform-pipelines/cdk-util';
 import { getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName } from '@uniform-pipelines/model';
 import { Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
-
-const PIPELINE_NAME = 'Feature1_Pipeline';
+import { makeVersionedPipelineName } from '../../library/model/src/model-functions';
+import { DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, STACK_NAME_TAG, STACK_VERSION_TAG } from '../../library/model/src/model-constants';
 
 class DeploymentStage extends Stage {
+    readonly containedStack: Stack;
+
     constructor(scope: Construct, targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps) {
         super(scope, `${pipelineStackProps.containedStackName}-deployment-${targetEnvironment.uniqueName}`, {
             stageName: `deployment-${targetEnvironment.uniqueName}-${targetEnvironment.account}-${targetEnvironment.region}`,
         });
-        new ComplexStackSampleStack(this, 'target-stack', {
+        this.containedStack = new ComplexStackSampleStack(this, 'target-stack', {
+    
             ...pipelineStackProps.containedStackProps,
             stackName: pipelineStackProps.containedStackName,
             env: {
@@ -27,12 +30,15 @@ class DeploymentStage extends Stage {
                 region: targetEnvironment.region,
             }
         });
+        Tags.of(this.containedStack).add(STACK_VERSION_TAG, pipelineStackProps.containedStackVersion);
+        Tags.of(this.containedStack).add(STACK_DEPLOYED_AT_TAG, (new Date()).toISOString());
     }
 }
 
 export interface PipelineStackProps extends StackProps {
     containedStackProps: StackProps;
     containedStackName: string;
+    containedStackVersion: string;
 }
 
 export class PipelineStack extends Stack {
@@ -76,7 +82,7 @@ export class PipelineStack extends Stack {
 
         // Create a new CodePipeline
         const pipeline = new CodePipeline(this, 'cicd-pipeline', {
-            codePipeline: this.createCrossRegionReplicationsBase(),
+            codePipeline: this.createCrossRegionReplicationsBase(props),
             // Define the synthesis step
             synth: new CodeBuildStep('synth-step', {
                 input: codeSource,
@@ -102,10 +108,15 @@ export class PipelineStack extends Stack {
         pipeline.buildPipeline();
 
         sourceBucket.grantRead(pipeline.pipeline.role);
+
+        Tags.of(pipeline.pipeline).add(STACK_NAME_TAG, props.containedStackName);
+        Tags.of(pipeline.pipeline).add(STACK_VERSION_TAG, props.containedStackVersion);
+        Tags.of(pipeline.pipeline).add(DEPLOYER_STACK_NAME_TAG, this.stackName);
+
     }
 
     
-    createCrossRegionReplicationsBase() {
+    createCrossRegionReplicationsBase(props: PipelineStackProps) {
         const encryptionKey = Key.fromKeyArn(
             this,
             'artifact-bucket-key-arn',
@@ -138,7 +149,7 @@ export class PipelineStack extends Stack {
 
         return new Pipeline(this, 'cross-region-replication-base', {
             pipelineType: PipelineType.V2,
-            pipelineName: PIPELINE_NAME,
+            pipelineName: makeVersionedPipelineName(props.containedStackName, props.containedStackVersion),
             crossRegionReplicationBuckets,
             crossAccountKeys: false,
         });

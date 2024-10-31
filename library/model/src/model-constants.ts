@@ -15,3 +15,9 @@ export enum StackExports {
     PIPELINE_ARTIFACT_BUCKET_KEY_ARN_REF = `${LIBRARY_NAMESPACE}-artifact-bucket-key-arn-ref`,
     PIPELINE_ARTIFACT_BUCKET_ARN_REF = `${LIBRARY_NAMESPACE}-artifact-bucket-arn-ref`,
 }
+
+export const STACK_NAME_TAG = `${LIBRARY_NAMESPACE}:contained-stack-name`;
+export const STACK_VERSION_TAG = `${LIBRARY_NAMESPACE}:contained-stack-version`;
+export const DEPLOYER_STACK_NAME_TAG = `${LIBRARY_NAMESPACE}:deployer-stack-name`;
+export const STACK_DEPLOYED_AT_TAG = `${LIBRARY_NAMESPACE}:deployed-at`;
+
