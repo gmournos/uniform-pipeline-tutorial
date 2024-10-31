@@ -6,6 +6,7 @@ import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments,
     getTargetEnvironmentsEnvVariablesAsObject, StackExports,  INNER_PIPELINE_INPUT_FOLDER,
     makeVersionedPipelineName, DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, 
     STACK_NAME_TAG, STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName } from '@uniform-pipelines/model';
+import { CHANGESET_RENAME_MACRO } from '../../library/model/dist';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
@@ -119,6 +120,7 @@ export class PipelineStack extends Stack {
         pipeline.buildPipeline();
 
         sourceBucket.grantRead(pipeline.pipeline.role);
+        this.addTransform(CHANGESET_RENAME_MACRO); 
 
         Tags.of(pipeline.pipeline).add(STACK_NAME_TAG, props.containedStackName);
         Tags.of(pipeline.pipeline).add(STACK_VERSION_TAG, props.containedStackVersion);
