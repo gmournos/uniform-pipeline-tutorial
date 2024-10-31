@@ -2,10 +2,11 @@ import { Construct } from 'constructs';
 import { StackProps, Stack, Stage, Fn, Tags } from 'aws-cdk-lib';
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { ComplexStackSampleStack } from './complex-stack-sample-stack';
-import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsObject, 
-    SOURCE_CODE_KEY, StackExports } from '@uniform-pipelines/model';
+import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, 
+    getTargetEnvironmentsEnvVariablesAsObject, StackExports } from '@uniform-pipelines/model';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
+import { INNER_PIPELINE_INPUT_FOLDER } from '../../library/model/dist'
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Key } from 'aws-cdk-lib/aws-kms';
 import { KmsAliasArnReaderConstruct } from '@uniform-pipelines/cdk-util';
@@ -48,7 +49,7 @@ export class PipelineStack extends Stack {
         const sourceBucket = Bucket.fromBucketAttributes(this, 'pipeline-source-bucket', {
             bucketArn: Fn.importValue(StackExports.PIPELINE_SOURCE_BUCKET_ARN_REF),
         });
-        const codeSource = CodePipelineSource.s3(sourceBucket, SOURCE_CODE_KEY, {
+        const codeSource = CodePipelineSource.s3(sourceBucket, `${INNER_PIPELINE_INPUT_FOLDER}/${props.containedStackName}-${props.containedStackVersion}.zip`, {
             trigger: S3Trigger.NONE,
         });
 
