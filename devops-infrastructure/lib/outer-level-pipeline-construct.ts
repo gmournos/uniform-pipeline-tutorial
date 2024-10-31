@@ -4,14 +4,13 @@ import * as cpactions from 'aws-cdk-lib/aws-codepipeline-actions';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import { Action, Artifact, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { Construct } from 'constructs';
-import { COMMON_REPO, DOMAIN_NAME, OUTER_PIPELINE_NAME, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsCodeBuildObject } from '../../library/model/dist';
+import { COMMON_REPO, DOMAIN_NAME, OUTER_PIPELINE_NAME, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsCodeBuildObject, makeVersionedPipelineStackName } from '../../library/model/dist';
 import { IRole } from 'aws-cdk-lib/aws-iam';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
 
 interface OuterLevelPipelineStackProps {
     sourceAction: Action;
     sourceOutput: Artifact;
-    innerPipelineStackName: string;
     templatePath: string;
     mainRole: IRole;
     actionsRole: IRole;
@@ -33,10 +32,18 @@ export class OuterLevelPipelineConstruct extends Construct {
                 role: props.actionsRole,
                 buildSpec: codebuild.BuildSpec.fromObject({
                     version: '0.2',
+                    env: {
+                        'exported-variables': ['targetStackName', 'targetStackVersion'],
+                    },
                     phases: {
                         install: {
                             commands: [
+                                'cat cdk.context.json',
+                                'node --version',
                                 'npm install -g aws-cdk',
+                                'npx aws-cdk --version',
+                                'targetStackName=$(jq -r .stackName cdk.context.json)',
+                                'targetStackVersion=$(jq -r .version cdk.context.json)',
                                 `aws codeartifact login --tool npm --repository ${COMMON_REPO} --domain ${DOMAIN_NAME} --domain-owner ${TargetEnvironments.DEVOPS.account}`,
                             ],
                         },
@@ -55,12 +62,14 @@ export class OuterLevelPipelineConstruct extends Construct {
                 },
             }),
         });
+        const targetStackName = synthAction.variable('targetStackName');
+        const targetStackVersion = synthAction.variable('targetStackVersion');
 
         // Deploy stage
         const deployAction = new cpactions.CloudFormationCreateUpdateStackAction({
             actionName: 'CFN_Deploy',
             templatePath: synthOutput.atPath(props.templatePath),
-            stackName: props.innerPipelineStackName,
+            stackName: makeVersionedPipelineStackName(targetStackName, targetStackVersion),
             adminPermissions: true,
             role: props.actionsRole,
             cfnCapabilities: [cdk.CfnCapabilities.NAMED_IAM],
