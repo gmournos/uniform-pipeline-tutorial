@@ -6,6 +6,7 @@ import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, getTar
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
+import { Key } from 'aws-cdk-lib/aws-kms';
 
 const PIPELINE_NAME = 'Feature1_Pipeline';
 
@@ -33,6 +34,14 @@ export interface PipelineStackProps extends StackProps {
 export class PipelineStack extends Stack {
     constructor(scope: Construct, id: string, props: PipelineStackProps) {
         super(scope, id, props);
+
+        const encryptionKey = Key.fromKeyArn(this, 'artifact-bucket-key-arn',
+            Fn.importValue(StackExports.PIPELINE_ARTIFACT_BUCKET_KEY_ARN_REF));
+
+        const artifactBucket = Bucket.fromBucketAttributes(this, 'pipeline-artifact-bucket', {
+            bucketArn: Fn.importValue(StackExports.PIPELINE_ARTIFACT_BUCKET_ARN_REF),
+            encryptionKey,
+        });
 
         const sourceBucket = Bucket.fromBucketAttributes(this, 'pipeline-source-bucket', {
             bucketArn: Fn.importValue(StackExports.PIPELINE_SOURCE_BUCKET_ARN_REF),
@@ -71,6 +80,7 @@ export class PipelineStack extends Stack {
 
         // Create a new CodePipeline
         const pipeline = new CodePipeline(this, 'cicd-pipeline', {
+            artifactBucket,
             pipelineName: PIPELINE_NAME,
             // Define the synthesis step
             synth: new CodeBuildStep('synth-step', {
