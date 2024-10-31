@@ -6,14 +6,16 @@ import { Artifact, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { Construct } from 'constructs';
 import { COMMON_REPO, DOMAIN_NAME, OUTER_PIPELINE_NAME, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsCodeBuildObject, makeVersionedPipelineStackName, SOURCE_CODE_KEY } from '../../library/model/dist';
 import { IRole } from 'aws-cdk-lib/aws-iam';
-import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
+import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { Key } from 'aws-cdk-lib/aws-kms';
 
 interface OuterLevelPipelineStackProps {
     sourceBucketArn: string;
+    artifactBucketArn: string;
+    artifactBucketKeyArn: string;
     templatePath: string;
     mainRole: IRole;
     actionsRole: IRole;
-    artifactBucket: IBucket;
 }
 
 export class OuterLevelPipelineConstruct extends Construct {
@@ -23,6 +25,14 @@ export class OuterLevelPipelineConstruct extends Construct {
         const sourceBucket = Bucket.fromBucketAttributes(this, 'pipeline-source-bucket', {
             bucketArn: props.sourceBucketArn,
         });
+
+        const encryptionKey = Key.fromKeyArn(this, 'artifact-bucket-key-arn', props.artifactBucketKeyArn);
+
+        const artifactBucket = Bucket.fromBucketAttributes(this, 'pipeline-artifact-bucket', {
+            bucketArn: props.artifactBucketArn,
+            encryptionKey,
+        });
+
 
         // S3 source action - you can reference an existing S3 bucket as well
         const sourceOutput = new Artifact();
@@ -94,7 +104,7 @@ export class OuterLevelPipelineConstruct extends Construct {
         new codepipeline.Pipeline(this, 'outer-pipeline', {
             pipelineType: PipelineType.V2,
             role: props.mainRole,
-            artifactBucket: props.artifactBucket,
+            artifactBucket: artifactBucket,
             pipelineName: OUTER_PIPELINE_NAME,
             stages: [
                 {
