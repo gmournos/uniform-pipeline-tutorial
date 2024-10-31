@@ -3,7 +3,7 @@ import * as cdk from 'aws-cdk-lib';
 import { ComplexStackSampleStack } from '../lib/complex-stack-sample-stack';
 import { PipelineStack } from '../lib/pipeline-construct';
 import { TargetEnvironments } from '@uniform-pipelines/model';
-import { makeVersionedPipelineStackName } from '../../library/model/src/model-functions';
+import { makeVersionedPipelineStackName, INNER_PIPELINE_STACK_TEMPLATE_NAME } from '../../library/model/dist';
 
 const app = new cdk.App();
 
@@ -15,7 +15,7 @@ const containedStackName = app.node.tryGetContext('stackName');
 const versionedDescription = `${containedStackName}:${containedStackVersion}: ${containedStackDescription}`;
 
 if (inPipelines === 'true') {
-    new PipelineStack(app, 'pipeline-stack', {
+    new PipelineStack(app, INNER_PIPELINE_STACK_TEMPLATE_NAME, {
         containedStackName,
         containedStackVersion: containedStackVersion,
         containedStackProps: {

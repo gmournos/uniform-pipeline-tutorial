@@ -4,6 +4,7 @@ export const DOMAIN_NAME = `${LIBRARY_NAMESPACE}-tutorial-artifact-domain`;
 export const NPM_REPO = `${LIBRARY_NAMESPACE}-tutorial-npm-repo`;
 export const COMMON_REPO = `${LIBRARY_NAMESPACE}-tutorial-common-repo`;
 
+export const INNER_PIPELINE_STACK_TEMPLATE_NAME = `inner-${LIBRARY_NAMESPACE}-stack`;
 export const INNER_PIPELINE_INPUT_FOLDER = 'inner-pipeline-input'
 export const SOURCE_CODE_BUCKET_NAME = `${LIBRARY_NAMESPACE}-tutorial-sources-bucket`;
 export const SOURCE_CODE_KEY = 'deployments/pipeline-input.zip';
