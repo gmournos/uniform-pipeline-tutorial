@@ -12,13 +12,19 @@ import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Key } from 'aws-cdk-lib/aws-kms';
 import { KmsAliasArnReaderConstruct } from '@uniform-pipelines/cdk-util';
 import { Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
+import { CfnPipeline } from 'aws-cdk-lib/aws-codepipeline';
+
+const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
+    return `deployment-${targetEnvironment.uniqueName}-${targetEnvironment.account}-${targetEnvironment.region}`;
+};
 
 class DeploymentStage extends Stage {
     readonly containedStack: Stack;
 
     constructor(scope: Construct, targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps) {
         super(scope, `${pipelineStackProps.containedStackName}-deployment-${targetEnvironment.uniqueName}`, {
-            stageName: `deployment-${targetEnvironment.uniqueName}-${targetEnvironment.account}-${targetEnvironment.region}`,
+            stageName: makeDeploymentStageName(targetEnvironment),
+
         });
         this.containedStack = new ComplexStackSampleStack(this, 'target-stack', {
     
@@ -120,11 +126,12 @@ export class PipelineStack extends Stack {
 
         sourceBucket.grantRead(pipeline.pipeline.role);
         this.addTransform(CHANGESET_RENAME_MACRO); 
+        disableTransitions(pipeline.pipeline.node.defaultChild as CfnPipeline, 
+            [makeDeploymentStageName(TargetEnvironments.ACCEPTANCE)], 'Avoid manual approval expiration after one week');
 
         Tags.of(pipeline.pipeline).add(STACK_NAME_TAG, props.containedStackName);
         Tags.of(pipeline.pipeline).add(STACK_VERSION_TAG, props.containedStackVersion);
         Tags.of(pipeline.pipeline).add(DEPLOYER_STACK_NAME_TAG, this.stackName);
-
     }
 
     
@@ -168,3 +175,12 @@ export class PipelineStack extends Stack {
     }
 }
 
+const disableTransitions = (pipeline: CfnPipeline, stageNames: string[], disableReason: string) => {
+    const disableTransitionsPropertyParams = stageNames.map(stageName => {
+        return {
+            Reason: disableReason,
+            StageName: stageName,
+        };
+    });
+    pipeline.addPropertyOverride("DisableInboundStageTransitions", disableTransitionsPropertyParams);
+};
