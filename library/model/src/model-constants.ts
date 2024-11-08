@@ -26,6 +26,8 @@ export const POSTMAN_REPORT_GROUP =  `${LIBRARY_NAMESPACE}-postman-report-group`
 
 export const CLEANUP_HISTORY_MONTHS_LENGTH = 3;
 export const CLEANUP_MAX_HISTORY_LENGTH = 7;
+export const CLEANUP_DELETE_BATCH_SIZE = 5;
+
 
 
 export enum StackExports {
