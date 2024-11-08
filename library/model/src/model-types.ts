@@ -14,3 +14,15 @@ export interface IndividualDeploymentPlanProps {
 }
 
 export type DeploymentPlanType = { [key: string]: IndividualDeploymentPlanProps; };
+
+
+export interface PipelineStackPair {
+    pipelineName: string,
+    stackName: string,
+}
+
+export interface ProgressStatus<T> {
+    isComplete: boolean;
+    unitsOfWork: T[];
+}
+

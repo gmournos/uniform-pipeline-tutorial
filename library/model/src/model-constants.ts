@@ -24,6 +24,9 @@ export const PIPELINES_POSTMAN_SPEC_DEF_FILE = 'postman.json';
 export const PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE = 'custom-buildspec-apitests.yaml';
 export const POSTMAN_REPORT_GROUP =  `${LIBRARY_NAMESPACE}-postman-report-group`;
 
+export const CLEANUP_HISTORY_MONTHS_LENGTH = 3;
+export const CLEANUP_MAX_HISTORY_LENGTH = 7;
+
 
 export enum StackExports {
     PIPELINE_SOURCE_BUCKET_ARN_REF = `${LIBRARY_NAMESPACE}-source-bucket-arn-ref`,

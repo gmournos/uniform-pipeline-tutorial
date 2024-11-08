@@ -1,6 +1,9 @@
 import { CodePipelineClient, PipelineExecutionStatus, StartPipelineExecutionCommand } from '@aws-sdk/client-codepipeline';
 import { filterTagsToMap, getPipelineArn, getPipelineLastExecutionStatus, getPipelineTags, listPipelines } from './utils';
 import { DEPLOYER_STACK_NAME_TAG, STACK_NAME_TAG, STACK_VERSION_TAG, LIBRARY_NAMESPACE } from '@uniform-pipelines/model';
+import { PipelineStackPair, ProgressStatus, CLEANUP_MAX_HISTORY_LENGTH, CLEANUP_HISTORY_MONTHS_LENGTH } from '../../../library/model/dist';
+import * as semver from 'semver';
+import { DateTime } from 'luxon';
 
 // Create a new CodePipeline client
 const client = new CodePipelineClient();
@@ -90,4 +93,70 @@ const getOldUniformPipelinesInfo = async () => {
     }
 
     return result;
+};
+
+const groupPipelinesByStackName = (pipelineList: UniformPipelineInfo[]): Map<string, UniformPipelineInfo[]> => {
+    return pipelineList.reduce((map, pipelineInfo) => {
+        const { containedStackName } = pipelineInfo;
+
+        // Initialize array for this stack name if not already present
+        if (!map.has(containedStackName)) {
+            map.set(containedStackName, []);
+        }
+
+        // Push the pipelineInfo into the appropriate array
+        map.get(containedStackName)!.push(pipelineInfo);
+
+        return map;
+    }, new Map<string, UniformPipelineInfo[]>());
+};
+
+
+export const detectOldPipelineStacks = async () : Promise<ProgressStatus<PipelineStackPair>> => {
+    const uniformPipelines = await getOldUniformPipelinesInfo();
+    const groupedUniformPipelines = groupPipelinesByStackName(uniformPipelines);
+    const oldPipelineStacks : PipelineStackPair[] = [];
+
+    for (const [stackName, pipelineInfos] of groupedUniformPipelines.entries()) {
+        console.debug(`Examining stack ${stackName} for old pipelines`);
+
+        const descSortedByVersionPipelineInfos = pipelineInfos.sort((a, b) => semver.compare(b.containedStackVersion, a.containedStackVersion));
+        console.debug('Desc by version Sorted pipelines for stack are', descSortedByVersionPipelineInfos);
+
+        const oldestPipelineInfos = descSortedByVersionPipelineInfos.slice(CLEANUP_MAX_HISTORY_LENGTH);
+        console.debug('Oldest pipelines are', oldestPipelineInfos);
+
+        if (oldestPipelineInfos.length === 0) {
+            console.info(`No old pipelines to clear for stack ${stackName}. Skipping...`);
+            continue;
+        }
+        
+        const now = DateTime.now();
+    
+        for (const potentiallyOldPipeline of oldestPipelineInfos) {
+            const pipelineName = potentiallyOldPipeline.pipelineName;
+            const pipelineDateTime = DateTime.fromJSDate(potentiallyOldPipeline.pipelineLastUpdate);
+            // Calculate the difference in months
+            const diffInMonths = now.diff(pipelineDateTime, 'months').months;
+            
+            if (diffInMonths < CLEANUP_HISTORY_MONTHS_LENGTH) {
+                console.warn(`Skipping pipeline that was updtated recently (i.e. ${diffInMonths} ago)`, pipelineName);
+                continue;
+            }
+    
+            if (potentiallyOldPipeline.pipelineStatus === PipelineExecutionStatus.InProgress) {
+                console.warn('Skipping active pipeline', pipelineName);
+                continue;
+            }
+            oldPipelineStacks.push({
+                stackName: potentiallyOldPipeline.cloudformationStackName,
+                pipelineName: potentiallyOldPipeline.pipelineName,
+            });
+        }
+    }
+    console.info('Detected old stacks:', oldPipelineStacks);
+    return {
+        isComplete: oldPipelineStacks.length === 0,
+        unitsOfWork: oldPipelineStacks,
+    };
 };
