@@ -98,6 +98,9 @@ export class PipelineStack extends Stack {
         // Add a deployment stage to TEST
         pipeline.addStage(new DeploymentStage(this, TargetEnvironments.TEST, props));
 
+        // Add a deployment stage to ACCEPTANCE
+        pipeline.addStage(new DeploymentStage(this, TargetEnvironments.ACCEPTANCE, props));
+
         pipeline.buildPipeline();
 
         sourceBucket.grantRead(pipeline.pipeline.role);
