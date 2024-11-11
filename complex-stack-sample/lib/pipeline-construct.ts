@@ -2,7 +2,7 @@ import { Construct } from 'constructs';
 import { StackProps, Stack, Stage } from 'aws-cdk-lib';
 import { CodeBuildStep, CodePipeline, IFileSetProducer } from 'aws-cdk-lib/pipelines';
 import { ComplexStackSampleStack } from './complex-stack-sample-stack';
-import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments } from '../../library/model';
+import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsObject } from '../../library/model';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 const PIPELINE_NAME = 'Feature1_Pipeline';
@@ -73,6 +73,7 @@ export class PipelineStack extends Stack {
                 ],
                 commands: ['npm ci', 'npm run build', 'npx aws-cdk synth'], // Build and synthesize the CDK app
                 rolePolicyStatements: codeArtifactPermissions,
+                env: getTargetEnvironmentsEnvVariablesAsObject(),
             }),
         });
 

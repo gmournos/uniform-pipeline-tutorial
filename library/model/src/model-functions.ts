@@ -51,3 +51,18 @@ export const generateTargetEnvironments = () : { [key in specifics.EnvironmentNa
 export const makeCdkDefaultDeployRole = (targetEnvironment: types.TargetEnvironment) => {
     return `arn:aws:iam::${targetEnvironment.account}:role/cdk-${DEFAULT_QUALIFIER}-deploy-role-${targetEnvironment.account}-${targetEnvironment.region}`;
 }
+
+export const getTargetEnvironmentsEnvVariablesAsObject = (): Record<string, string> => {
+    const env: { [key: string]: string | undefined } = {};
+
+    Object.keys(specifics.EnvironmentName).forEach(accountKey => {
+        // Construct the keys dynamically
+        const accountEnvKey = getAccountEnvironmentVariableKey(accountKey);
+        const regionEnvKey = getRegionEnvironmentVariableKey(accountKey);
+
+        // Assign the corresponding environment variables to the env object
+        env[accountEnvKey] = getAccountEnvironmentVariableValue(accountKey);
+        env[regionEnvKey] = getRegionEnvironmentVariableValue(accountKey);
+    });
+    return env as Record<string, string>;
+};
