@@ -2,7 +2,7 @@ import { Construct } from 'constructs';
 import { StackProps, Stack, Stage, Fn } from 'aws-cdk-lib';
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { ComplexStackSampleStack } from './complex-stack-sample-stack';
-import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsObject, SOURCE_CODE_KEY, StackExports } from '../../library/model';
+import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsObject, SOURCE_CODE_KEY, StackExports } from '@uniform-pipelines/model';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
