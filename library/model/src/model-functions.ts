@@ -40,6 +40,24 @@ const createTargetEnvironment = (environmentName: string) => {
     };
 };
 
+export const getCrossRegionTargetEnvironments = (devopsRegion: string, targetEnvironmentsObject: types.TargetEnvironmentsType) => {
+    const regionMap = new Map<string, types.TargetEnvironment[]>();
+
+    Object.values(targetEnvironmentsObject)
+        .filter(targetEnvironment => targetEnvironment.region !== devopsRegion)
+        .forEach(targetEnvironment => {
+            const targetRegion = targetEnvironment.region;
+
+            // Add the environment to the corresponding region in the map
+            if (!regionMap.has(targetRegion)) {
+                regionMap.set(targetRegion, []);
+            }
+            regionMap.get(targetRegion)!.push(targetEnvironment);
+        });
+
+    return regionMap;
+};
+
 // Function to generate TargetEnvironments by looping over the Environment enum
 export const generateTargetEnvironments = () : { [key in specifics.EnvironmentName]: types.TargetEnvironment } => {
     return Object.values(specifics.EnvironmentName).reduce((acc, env) => {
