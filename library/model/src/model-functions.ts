@@ -1,5 +1,6 @@
 import * as types from './model-types';
 import * as specifics from './model-specific';
+import { LIBRARY_NAMESPACE } from './model-constants';
 
 const DEFAULT_QUALIFIER = "hnb659fds";
 
@@ -57,6 +58,18 @@ export const getCrossRegionTargetEnvironments = (devopsRegion: string, targetEnv
 
     return regionMap;
 };
+
+export const getSupportStackName = (region: string) => {
+    return `${LIBRARY_NAMESPACE}-support-stack-${region}`;
+}
+
+export const getSupportKeyAliasName = (region: string) => {
+    return `${LIBRARY_NAMESPACE}-support-replication-key-alias-${region}`;
+}
+
+export const getSupportBucketName = (region: string) => {
+    return `${LIBRARY_NAMESPACE}-support-replication-bucket-${region}`;
+}
 
 // Function to generate TargetEnvironments by looping over the Environment enum
 export const generateTargetEnvironments = () : { [key in specifics.EnvironmentName]: types.TargetEnvironment } => {
