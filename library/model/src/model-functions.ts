@@ -1,6 +1,8 @@
 import * as types from './model-types';
 import * as specifics from './model-specific';
 
+const DEFAULT_QUALIFIER = "hnb659fds";
+
 const getEnvironmentVariableKey = (varName: string) => {
     return `UNIFORM_PIPELINES_ENV_${varName}`;
 };
@@ -46,3 +48,6 @@ export const generateTargetEnvironments = () : { [key in specifics.EnvironmentNa
     }, {} as { [key in specifics.EnvironmentName]: types.TargetEnvironment });
 }
 
+export const makeCdkDefaultDeployRole = (targetEnvironment: types.TargetEnvironment) => {
+    return `arn:aws:iam::${targetEnvironment.account}:role/cdk-${DEFAULT_QUALIFIER}-deploy-role-${targetEnvironment.account}-${targetEnvironment.region}`;
+}
