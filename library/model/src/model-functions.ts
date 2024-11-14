@@ -98,6 +98,18 @@ export const getTargetEnvironmentsEnvVariablesAsObject = (): Record<string, stri
     return env as Record<string, string>;
 };
 
+export const getTargetEnvironmentsEnvVariablesAsCodeBuildObject = (): Record<string, {value: string}> => {
+    const env : Record<string, {value: string}> = {};
+    const envVariablesObject = getTargetEnvironmentsEnvVariablesAsObject();
+
+    Object.keys(envVariablesObject).forEach(envName => {
+        const value = envVariablesObject[envName];
+        env[envName] = { value };
+    });
+   
+    return env;
+};
+
 export const makeVersionedPipelineName = (containedStackName: string, containedStackVersion: string) => {
     return `${containedStackName}-${containedStackVersion.replace(/\./g, '-')}-${LIBRARY_NAMESPACE}`; 
 }

@@ -4,7 +4,7 @@ import * as cpactions from 'aws-cdk-lib/aws-codepipeline-actions';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import { Action, Artifact, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { Construct } from 'constructs';
-import { COMMON_REPO, DOMAIN_NAME, OUTER_PIPELINE_NAME, TargetEnvironments } from '../../library/model/dist';
+import { COMMON_REPO, DOMAIN_NAME, OUTER_PIPELINE_NAME, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsCodeBuildObject } from '../../library/model/dist';
 import { IRole } from 'aws-cdk-lib/aws-iam';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
 
@@ -51,6 +51,7 @@ export class OuterLevelPipelineConstruct extends Construct {
                 }),
                 environment: {
                     buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
+                    environmentVariables: getTargetEnvironmentsEnvVariablesAsCodeBuildObject(),
                 },
             }),
         });
