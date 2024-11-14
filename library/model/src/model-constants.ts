@@ -17,10 +17,19 @@ export enum StackExports {
     PIPELINE_SOURCE_BUCKET_ARN_REF = `${LIBRARY_NAMESPACE}-source-bucket-arn-ref`,
     PIPELINE_ARTIFACT_BUCKET_KEY_ARN_REF = `${LIBRARY_NAMESPACE}-artifact-bucket-key-arn-ref`,
     PIPELINE_ARTIFACT_BUCKET_ARN_REF = `${LIBRARY_NAMESPACE}-artifact-bucket-arn-ref`,
+    OUTER_PIPELINE_MAIN_ROLE_ARN_REF = `${LIBRARY_NAMESPACE}-outer-main-role-arn-ref`,
+    OUTER_PIPELINE_ACTIONS_ROLE_ARN_REF = `${LIBRARY_NAMESPACE}-outer-actions-role-arn-ref`,
+    OUTER_PIPELINE_DEPLOYMENT_ROLE_ARN_REF = `${LIBRARY_NAMESPACE}-deploymenent-role-arn-ref`,
 }
 
 export const STACK_NAME_TAG = `${LIBRARY_NAMESPACE}:contained-stack-name`;
 export const STACK_VERSION_TAG = `${LIBRARY_NAMESPACE}:contained-stack-version`;
 export const DEPLOYER_STACK_NAME_TAG = `${LIBRARY_NAMESPACE}:deployer-stack-name`;
 export const STACK_DEPLOYED_AT_TAG = `${LIBRARY_NAMESPACE}:deployed-at`;
+
+export enum PipelineRoles {
+    OUTER_PIPELINE_ROLE = 'outer-pipeline-role',
+    OUTER_PIPELINE_ACTIONS_ROLE = 'outer-pipeline-actions-role',
+    OUTER_PIPELINE_DEPLOYMENT_ROLE = 'outer-pipeline-deployment-deployment-role',
+};
 
