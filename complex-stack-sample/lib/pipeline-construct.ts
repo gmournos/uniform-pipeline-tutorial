@@ -3,17 +3,15 @@ import { StackProps, Stack, Stage, Fn, Tags } from 'aws-cdk-lib';
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { ComplexStackSampleStack } from './complex-stack-sample-stack';
 import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, 
-    getTargetEnvironmentsEnvVariablesAsObject, StackExports } from '@uniform-pipelines/model';
+    getTargetEnvironmentsEnvVariablesAsObject, StackExports,  INNER_PIPELINE_INPUT_FOLDER,
+    makeVersionedPipelineName, DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, 
+    STACK_NAME_TAG, STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName } from '@uniform-pipelines/model';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
-import { INNER_PIPELINE_INPUT_FOLDER } from '../../library/model/dist'
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Key } from 'aws-cdk-lib/aws-kms';
 import { KmsAliasArnReaderConstruct } from '@uniform-pipelines/cdk-util';
-import { getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName } from '@uniform-pipelines/model';
 import { Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
-import { makeVersionedPipelineName } from '../../library/model/src/model-functions';
-import { DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, STACK_NAME_TAG, STACK_VERSION_TAG } from '../../library/model/src/model-constants';
 
 class DeploymentStage extends Stage {
     readonly containedStack: Stack;

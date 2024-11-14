@@ -2,8 +2,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { ComplexStackSampleStack } from '../lib/complex-stack-sample-stack';
 import { PipelineStack } from '../lib/pipeline-construct';
-import { TargetEnvironments } from '@uniform-pipelines/model';
-import { makeVersionedPipelineStackName, INNER_PIPELINE_STACK_TEMPLATE_NAME } from '../../library/model/dist';
+import { makeVersionedPipelineStackName, INNER_PIPELINE_STACK_TEMPLATE_NAME, TargetEnvironments } from '@uniform-pipelines/model';
 
 const app = new cdk.App();
 
