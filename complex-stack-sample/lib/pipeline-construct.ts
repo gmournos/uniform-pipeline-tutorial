@@ -1,6 +1,6 @@
 import { Construct } from 'constructs';
 import { StackProps, Stack, Stage, Fn, Tags } from 'aws-cdk-lib';
-import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
+import { CodeBuildStep, CodePipeline, CodePipelineSource, ManualApprovalStep } from 'aws-cdk-lib/pipelines';
 import { ComplexStackSampleStack } from './complex-stack-sample-stack';
 import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, 
     getTargetEnvironmentsEnvVariablesAsObject, StackExports,  INNER_PIPELINE_INPUT_FOLDER,
@@ -99,7 +99,19 @@ export class PipelineStack extends Stack {
         pipeline.addStage(new DeploymentStage(this, TargetEnvironments.TEST, props));
 
         // Add a deployment stage to ACCEPTANCE
-        pipeline.addStage(new DeploymentStage(this, TargetEnvironments.ACCEPTANCE, props));
+        const deployToAcceptanceStage = new DeploymentStage(this, TargetEnvironments.ACCEPTANCE, props);
+        const approvalAcceptance = {
+            stackSteps: [ {
+                stack: deployToAcceptanceStage.containedStack,
+                changeSet: [
+                    new ManualApprovalStep(`${props.containedStackName}-${props.containedStackVersion}-approval-promote-to-${TargetEnvironments.ACCEPTANCE.uniqueName}`, {
+                        comment: `Approve to deploy to ${TargetEnvironments.ACCEPTANCE.uniqueName}`,
+                    }),
+                ],
+            }],
+        };
+        
+        pipeline.addStage(deployToAcceptanceStage, approvalAcceptance);
 
         // Add a deployment stage to PRODUCTION
         pipeline.addStage(new DeploymentStage(this, TargetEnvironments.PRODUCTION, props));
