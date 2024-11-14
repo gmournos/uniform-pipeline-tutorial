@@ -2,11 +2,15 @@ import { Construct } from 'constructs';
 import { StackProps, Stack, Stage, Fn } from 'aws-cdk-lib';
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { ComplexStackSampleStack } from './complex-stack-sample-stack';
-import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsObject, SOURCE_CODE_KEY, StackExports } from '@uniform-pipelines/model';
+import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, getTargetEnvironmentsEnvVariablesAsObject, 
+    SOURCE_CODE_KEY, StackExports } from '@uniform-pipelines/model';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Key } from 'aws-cdk-lib/aws-kms';
+import { KmsAliasArnReaderConstruct } from '@uniform-pipelines/cdk-util';
+import { getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName } from '@uniform-pipelines/model';
+import { Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 
 const PIPELINE_NAME = 'Feature1_Pipeline';
 
@@ -34,14 +38,6 @@ export interface PipelineStackProps extends StackProps {
 export class PipelineStack extends Stack {
     constructor(scope: Construct, id: string, props: PipelineStackProps) {
         super(scope, id, props);
-
-        const encryptionKey = Key.fromKeyArn(this, 'artifact-bucket-key-arn',
-            Fn.importValue(StackExports.PIPELINE_ARTIFACT_BUCKET_KEY_ARN_REF));
-
-        const artifactBucket = Bucket.fromBucketAttributes(this, 'pipeline-artifact-bucket', {
-            bucketArn: Fn.importValue(StackExports.PIPELINE_ARTIFACT_BUCKET_ARN_REF),
-            encryptionKey,
-        });
 
         const sourceBucket = Bucket.fromBucketAttributes(this, 'pipeline-source-bucket', {
             bucketArn: Fn.importValue(StackExports.PIPELINE_SOURCE_BUCKET_ARN_REF),
@@ -80,8 +76,7 @@ export class PipelineStack extends Stack {
 
         // Create a new CodePipeline
         const pipeline = new CodePipeline(this, 'cicd-pipeline', {
-            artifactBucket,
-            pipelineName: PIPELINE_NAME,
+            codePipeline: this.createCrossRegionReplicationsBase(),
             // Define the synthesis step
             synth: new CodeBuildStep('synth-step', {
                 input: codeSource,
@@ -101,8 +96,52 @@ export class PipelineStack extends Stack {
         // Add a deployment stage to ACCEPTANCE
         pipeline.addStage(new DeploymentStage(this, TargetEnvironments.ACCEPTANCE, props));
 
+        // Add a deployment stage to PRODUCTION
+        pipeline.addStage(new DeploymentStage(this, TargetEnvironments.PRODUCTION, props));
+
         pipeline.buildPipeline();
 
         sourceBucket.grantRead(pipeline.pipeline.role);
     }
+
+    
+    createCrossRegionReplicationsBase() {
+        const encryptionKey = Key.fromKeyArn(
+            this,
+            'artifact-bucket-key-arn',
+            Fn.importValue(StackExports.PIPELINE_ARTIFACT_BUCKET_KEY_ARN_REF),
+        );
+
+        const artifactBucket = Bucket.fromBucketAttributes(this, 'pipeline-artifact-bucket', {
+            bucketArn: Fn.importValue(StackExports.PIPELINE_ARTIFACT_BUCKET_ARN_REF),
+            encryptionKey,
+        });
+
+        const crossRegionReplicationBuckets: { [region: string]: IBucket } = {
+            [TargetEnvironments.DEVOPS.region] : artifactBucket,
+        };
+
+        const crossRegionEnvironments = getCrossRegionTargetEnvironments(TargetEnvironments.DEVOPS.region, TargetEnvironments);
+        if (crossRegionEnvironments.size > 0) {
+
+            const kmsAliasArnReader = new KmsAliasArnReaderConstruct(this, 'kms-alias-reader-construct');
+            for (const [crossRegion, targetEnvironments] of crossRegionEnvironments) {
+                
+                const replicationBucket = Bucket.fromBucketAttributes(this, `replication-bucket-${crossRegion}`, {
+                    bucketName: getSupportBucketName(crossRegion),
+                    encryptionKey: Key.fromKeyArn(this, 'hardcoded', kmsAliasArnReader.getKeyArn(getSupportKeyAliasName(crossRegion), crossRegion)),
+                });
+
+                crossRegionReplicationBuckets[crossRegion] = replicationBucket;
+            }
+        }
+
+        return new Pipeline(this, 'cross-region-replication-base', {
+            pipelineType: PipelineType.V2,
+            pipelineName: PIPELINE_NAME,
+            crossRegionReplicationBuckets,
+            crossAccountKeys: false,
+        });
+    }
 }
+

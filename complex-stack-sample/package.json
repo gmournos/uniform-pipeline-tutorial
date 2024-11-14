@@ -11,9 +11,11 @@
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",
+    "@types/aws-lambda": "^8.10.145",
     "@types/node": "22.8.4",
     "@types/uuid": "^10.0.0",
-    "@uniform-pipelines/model": "^1.0.0",
+    "@uniform-pipelines/cdk-util": "^1.0.0",
+    "@uniform-pipelines/model": "^2.0.0",
     "aws-cdk": "2.164.1",
     "aws-cdk-lib": "2.164.1",
     "constructs": "^10.4.2",
@@ -22,6 +24,7 @@
     "typescript": "~5.6.3"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.687.0",
     "@aws-sdk/client-s3": "^3.688.0",
     "uuid": "^11.0.2"
   }
