@@ -5,8 +5,9 @@ import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import { Artifact, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { Construct } from 'constructs';
 import { COMMON_REPO, DOMAIN_NAME, OUTER_PIPELINE_NAME, TargetEnvironments, 
-    getTargetEnvironmentsEnvVariablesAsCodeBuildObject, makeVersionedPipelineStackName, SOURCE_CODE_KEY, 
-    INNER_PIPELINE_INPUT_FOLDER, INNER_PIPELINE_STACK_TEMPLATE_NAME } from '../../library/model/dist';
+    getTargetEnvironmentsEnvVariablesAsCodeBuildObject, SOURCE_CODE_KEY, 
+    INNER_PIPELINE_INPUT_FOLDER, INNER_PIPELINE_STACK_TEMPLATE_NAME, 
+    LIBRARY_NAMESPACE} from '../../library/model/dist';
 import { IRole } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Key } from 'aws-cdk-lib/aws-kms';
@@ -20,7 +21,7 @@ interface OuterLevelPipelineStackProps {
 }
 
 export class OuterLevelPipelineConstruct extends Construct {
-    constructor(scope: cdk.App, id: string, props: OuterLevelPipelineStackProps) {
+    constructor(scope: Construct, id: string, props: OuterLevelPipelineStackProps) {
         super(scope, id);
 
         const sourceBucket = Bucket.fromBucketAttributes(this, 'pipeline-source-bucket', {
@@ -59,7 +60,7 @@ export class OuterLevelPipelineConstruct extends Construct {
                 buildSpec: codebuild.BuildSpec.fromObject({
                     version: '0.2',
                     env: {
-                        'exported-variables': ['targetStackName', 'targetStackVersion'],
+                        'exported-variables': ['targetStackName', 'targetStackVersion', 'replacedTargetStackVersion'],
                     },
                     phases: {
                         install: {
@@ -71,6 +72,7 @@ export class OuterLevelPipelineConstruct extends Construct {
                                 'targetStackName=$(jq -r .stackName cdk.context.json)',
                                 'targetStackVersion=$(jq -r .version cdk.context.json)',
                                 `aws codeartifact login --tool npm --repository ${COMMON_REPO} --domain ${DOMAIN_NAME} --domain-owner ${TargetEnvironments.DEVOPS.account}`,
+                                "replacedTargetStackVersion=$(jq -r .version cdk.context.json | tr '.' '-')",
                                 `aws s3 cp s3://${sourceBucket.bucketName}/${SOURCE_CODE_KEY} s3://${sourceBucket.bucketName}/${INNER_PIPELINE_INPUT_FOLDER}/$targetStackName-$targetStackVersion.zip`,
                             ],
                         },
@@ -90,13 +92,13 @@ export class OuterLevelPipelineConstruct extends Construct {
             }),
         });
         const targetStackName = synthAction.variable('targetStackName');
-        const targetStackVersion = synthAction.variable('targetStackVersion');
-
+        const replacedTargetStackVersion = synthAction.variable('replacedTargetStackVersion');
+        
         // Deploy stage
         const deployAction = new cpactions.CloudFormationCreateUpdateStackAction({
             actionName: 'CFN_Deploy',
             templatePath: synthOutput.atPath(templatePath),
-            stackName: makeVersionedPipelineStackName(targetStackName, targetStackVersion),
+            stackName: `${targetStackName}-${replacedTargetStackVersion}-${LIBRARY_NAMESPACE}-stack`,
             adminPermissions: true,
             role: props.actionsRole,
             cfnCapabilities: [cdk.CfnCapabilities.NAMED_IAM],
