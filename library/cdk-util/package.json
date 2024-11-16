@@ -1,19 +1,17 @@
 {
     "name": "@uniform-pipelines/cdk-util",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
-        "build": "tsc && cp src/lambda/*.ts dist/lambda/"
+        "build": "tsc"
     },
     "devDependencies": {
         "@tsconfig/node20": "^20.1.4",
-        "@types/aws-lambda": "^8.10.145",
         "@types/node": "^22.8.6",
-        "esbuild": "^0.24.0"
+        "@uniform-pipelines/model": "^5.0.0"
     },
     "dependencies": {
-        "@aws-sdk/client-kms": "^3.687.0",
         "aws-cdk": "^2.167.0",
         "aws-cdk-lib": "^2.166.0",
         "constructs": "^10.4.2",
