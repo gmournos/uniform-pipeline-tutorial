@@ -6,3 +6,11 @@ export type TargetEnvironment = {
 };
 
 export type TargetEnvironmentsType = { [key: string]: TargetEnvironment; };
+
+export interface IndividualDeploymentPlanProps {
+    requiresApproval: boolean, 
+    shouldSmokeTest: boolean,
+    targetEnvironmentKey: string;
+}
+
+export type DeploymentPlanType = { [key: string]: IndividualDeploymentPlanProps; };

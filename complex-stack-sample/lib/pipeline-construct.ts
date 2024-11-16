@@ -9,6 +9,8 @@ import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments,
     CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO, PIPELINES_BUILD_SPEC_DEF_FILE,
     PIPELINES_POSTMAN_SPEC_DEF_FILE, StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE } from '@uniform-pipelines/model';
 
+import { DeploymentPlan, getIndividualDeploymentPlan, getTargetEnvironmentFromIndividualDeploymentPlan } from '../../library/model/dist';
+
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Key } from 'aws-cdk-lib/aws-kms';
@@ -44,28 +46,6 @@ const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
     return `deployment-${targetEnvironment.uniqueName}-${targetEnvironment.account}-${targetEnvironment.region}`;
 };
 
-class DeploymentStage extends Stage {
-    readonly containedStack: Stack;
-
-    constructor(scope: Construct, targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps) {
-        super(scope, `${pipelineStackProps.containedStackName}-deployment-${targetEnvironment.uniqueName}`, {
-            stageName: makeDeploymentStageName(targetEnvironment),
-
-        });
-        this.containedStack = new ComplexStackSampleStack(this, 'target-stack', {
-    
-            ...pipelineStackProps.containedStackProps,
-            stackName: pipelineStackProps.containedStackName,
-            env: {
-                account: targetEnvironment.account,
-                region: targetEnvironment.region,
-            }
-        });
-        Tags.of(this.containedStack).add(STACK_VERSION_TAG, pipelineStackProps.containedStackVersion);
-        Tags.of(this.containedStack).add(STACK_DEPLOYED_AT_TAG, (new Date()).toISOString());
-    }
-}
-
 export interface PipelineStackProps extends StackProps {
     containedStackProps: StackProps;
     containedStackName: string;
@@ -73,57 +53,88 @@ export interface PipelineStackProps extends StackProps {
 }
 
 export class PipelineStack extends Stack {
+    protected readonly pipeline: CodePipeline;
+    protected readonly codeSource: CodePipelineSource;
+    
+    public createDeploymentStage(scope: Construct, targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps) {
+            
+        class DeploymentStage extends Stage {
+            readonly containedStack: Stack;
+
+            constructor() {
+                super(scope, `${pipelineStackProps.containedStackName}-deployment-${targetEnvironment.uniqueName}`, {
+                    stageName: makeDeploymentStageName(targetEnvironment),
+
+                });
+                this.containedStack = new ComplexStackSampleStack(this, 'target-stack', {
+            
+                    ...pipelineStackProps.containedStackProps,
+                    stackName: pipelineStackProps.containedStackName,
+                    env: {
+                        account: targetEnvironment.account,
+                        region: targetEnvironment.region,
+                    }
+                });
+                Tags.of(this.containedStack).add(STACK_VERSION_TAG, pipelineStackProps.containedStackVersion);
+                Tags.of(this.containedStack).add(STACK_DEPLOYED_AT_TAG, (new Date()).toISOString());
+            }
+        }
+
+        const resultStage = new DeploymentStage();
+        const individualPlan = getIndividualDeploymentPlan(targetEnvironment, TargetEnvironments);
+        
+        const approval = individualPlan.requiresApproval ? {
+            stackSteps: [ {
+                stack: resultStage.containedStack,
+                changeSet: [this.makeManualApprovalStep(targetEnvironment, pipelineStackProps)],
+            }],
+        } : {} ;
+        const stage = this.pipeline.addStage(resultStage, approval);
+
+        if (individualPlan.shouldSmokeTest && hasPostmanSpec()) {
+            stage.addPost(this.makePostmanCodeBuild(targetEnvironment, this.codeSource));
+        }
+    }
+
+    protected makeManualApprovalStep(targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps) {
+        
+        return new ManualApprovalStep(`${pipelineStackProps.containedStackName}-approval-promote-to-${targetEnvironment.uniqueName}`, {
+            comment: `Approve to deploy to ${targetEnvironment.uniqueName}`,
+        });
+    }
+
     constructor(scope: Construct, id: string, props: PipelineStackProps) {
         super(scope, id, props);
 
         const sourceBucket = Bucket.fromBucketAttributes(this, 'pipeline-source-bucket', {
             bucketArn: Fn.importValue(StackExports.PIPELINE_SOURCE_BUCKET_ARN_REF),
         });
-        const codeSource = CodePipelineSource.s3(sourceBucket, `${INNER_PIPELINE_INPUT_FOLDER}/${props.containedStackName}-${props.containedStackVersion}.zip`, {
+        this.codeSource = CodePipelineSource.s3(sourceBucket, `${INNER_PIPELINE_INPUT_FOLDER}/${props.containedStackName}-${props.containedStackVersion}.zip`, {
             trigger: S3Trigger.NONE,
         });
 
         // Create a new CodePipeline
-        const pipeline = new CodePipeline(this, 'cicd-pipeline', {
+        this.pipeline = new CodePipeline(this, 'cicd-pipeline', {
             codePipeline: this.createCrossRegionReplicationsBase(props),
             // Define the synthesis step
-            synth: this.makeMainBuildStep(codeSource),
+            synth: this.makeMainBuildStep(this.codeSource),
         });
 
-        // Add a deployment stage to TEST
-        const testStage = pipeline.addStage(new DeploymentStage(this, TargetEnvironments.TEST, props));
-        if (hasPostmanSpec()) {
-            testStage.addPost(this.makePostmanCodeBuild(TargetEnvironments.TEST, codeSource));
-        }
+        DeploymentPlan.forEach( individualPlan => {
+            const targetEnvironment = getTargetEnvironmentFromIndividualDeploymentPlan(individualPlan, TargetEnvironments);
+            this.createDeploymentStage(this, targetEnvironment, props);
+        });
 
-        // Add a deployment stage to ACCEPTANCE
-        const deployToAcceptanceStage = new DeploymentStage(this, TargetEnvironments.ACCEPTANCE, props);
-        const approvalAcceptance = {
-            stackSteps: [ {
-                stack: deployToAcceptanceStage.containedStack,
-                changeSet: [
-                    new ManualApprovalStep(`${props.containedStackName}-${props.containedStackVersion}-approval-promote-to-${TargetEnvironments.ACCEPTANCE.uniqueName}`, {
-                        comment: `Approve to deploy to ${TargetEnvironments.ACCEPTANCE.uniqueName}`,
-                    }),
-                ],
-            }],
-        };
-        
-        pipeline.addStage(deployToAcceptanceStage, approvalAcceptance);
-
-        // Add a deployment stage to PRODUCTION
-        pipeline.addStage(new DeploymentStage(this, TargetEnvironments.PRODUCTION, props));
-
-        pipeline.buildPipeline();
+        this.pipeline.buildPipeline();
 
         this.addTransform(CHANGESET_RENAME_MACRO);
         this.addTransform(ROLE_REASSIGN_MACRO);  
-        disableTransitions(pipeline.pipeline.node.defaultChild as CfnPipeline, 
+        disableTransitions(this.pipeline.pipeline.node.defaultChild as CfnPipeline, 
             [makeDeploymentStageName(TargetEnvironments.ACCEPTANCE)], 'Avoid manual approval expiration after one week');
 
-        Tags.of(pipeline.pipeline).add(STACK_NAME_TAG, props.containedStackName);
-        Tags.of(pipeline.pipeline).add(STACK_VERSION_TAG, props.containedStackVersion);
-        Tags.of(pipeline.pipeline).add(DEPLOYER_STACK_NAME_TAG, this.stackName);
+        Tags.of(this.pipeline.pipeline).add(STACK_NAME_TAG, props.containedStackName);
+        Tags.of(this.pipeline.pipeline).add(STACK_VERSION_TAG, props.containedStackVersion);
+        Tags.of(this.pipeline.pipeline).add(DEPLOYER_STACK_NAME_TAG, this.stackName);
     }
 
     

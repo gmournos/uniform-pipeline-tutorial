@@ -118,3 +118,27 @@ export const makeVersionedPipelineStackName = (containedStackName: string, conta
     return `${containedStackName}-${containedStackVersion.replace(/\./g, '-')}-${LIBRARY_NAMESPACE}-stack`; 
 }
 
+export const getIndividualDeploymentPlan = (targetEnvironment: types.TargetEnvironment, targetEnviroments: types.TargetEnvironmentsType) => {
+    const targetEnvironmentKeys = Object.entries(targetEnviroments)
+        .filter( ([_, environment]) => environment.uniqueName === targetEnvironment.uniqueName)
+        .map(([accountKey, _]) => accountKey);
+    if (targetEnvironmentKeys.length !== 1) {
+        throw new Error('Environment not found');
+    }
+    const targetEnvironmentKey = targetEnvironmentKeys[0];
+
+    const deploymentPlans = specifics.DeploymentPlan.filter(individualDeploymentPlan => individualDeploymentPlan.targetEnvironmentKey === targetEnvironmentKey);
+
+    if (deploymentPlans.length !== 1) {
+        throw new Error('Environment not found');
+    }
+    return deploymentPlans[0];
+}
+
+export const getTargetEnvironmentFromIndividualDeploymentPlan = (individualDeploymentPlan: types.IndividualDeploymentPlanProps, targetEnviroments: types.TargetEnvironmentsType): types.TargetEnvironment => {
+    const targetEnvironmentKey = individualDeploymentPlan.targetEnvironmentKey as any;
+
+    return targetEnviroments[targetEnvironmentKey];
+}
+
+
