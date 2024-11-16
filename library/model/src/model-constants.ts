@@ -20,6 +20,8 @@ export const CHANGESET_RENAME_MACRO_ROLE = `${LIBRARY_NAMESPACE}-changeset-renam
 export const KMS_ALIAS_FINDER_FUNCTION = `${LIBRARY_NAMESPACE}-kms-alias-finder-function`;
 
 export const PIPELINES_BUILD_SPEC_DEF_FILE = 'custom-buildspec.yaml';
+export const PIPELINES_POSTMAN_SPEC_DEF_FILE = 'postman.json';
+
 export const POSTMAN_REPORT_GROUP =  `${LIBRARY_NAMESPACE}-postman-report-group`;
 
 

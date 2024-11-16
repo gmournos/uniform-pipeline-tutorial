@@ -3,10 +3,11 @@ import { StackProps, Stack, Stage, Fn, Tags } from 'aws-cdk-lib';
 import { CodeBuildStep, CodeBuildStepProps, CodePipeline, CodePipelineSource, ManualApprovalStep } from 'aws-cdk-lib/pipelines';
 import { ComplexStackSampleStack } from './complex-stack-sample-stack';
 import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, 
-    getTargetEnvironmentsEnvVariablesAsObject, StackExports,  INNER_PIPELINE_INPUT_FOLDER,
+    getTargetEnvironmentsEnvVariablesAsObject, INNER_PIPELINE_INPUT_FOLDER,
     makeVersionedPipelineName, DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, 
     STACK_NAME_TAG, STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName, 
     CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO, PIPELINES_BUILD_SPEC_DEF_FILE } from '@uniform-pipelines/model';
+import { PIPELINES_POSTMAN_SPEC_DEF_FILE, StackExports } from '../../library/model/dist';
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Key } from 'aws-cdk-lib/aws-kms';
@@ -15,7 +16,7 @@ import { Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { CfnPipeline } from 'aws-cdk-lib/aws-codepipeline';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
-import { BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
+import { BuildSpec, LinuxBuildImage, ReportGroupType } from 'aws-cdk-lib/aws-codebuild';
 
 export const fileExists = (filename: string) => {
     try {
@@ -30,6 +31,9 @@ export const hasBuildSpec = () => {
     return fileExists(PIPELINES_BUILD_SPEC_DEF_FILE);
 };
 
+export const hasPostmanSpec = () => {
+    return fileExists(PIPELINES_POSTMAN_SPEC_DEF_FILE);
+};
 
 const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
     return `deployment-${targetEnvironment.uniqueName}-${targetEnvironment.account}-${targetEnvironment.region}`;
@@ -82,7 +86,10 @@ export class PipelineStack extends Stack {
         });
 
         // Add a deployment stage to TEST
-        pipeline.addStage(new DeploymentStage(this, TargetEnvironments.TEST, props));
+        const testStage = pipeline.addStage(new DeploymentStage(this, TargetEnvironments.TEST, props));
+        if (hasPostmanSpec()) {
+            testStage.addPost(this.makePostmanCodeBuild(TargetEnvironments.TEST, codeSource));
+        }
 
         // Add a deployment stage to ACCEPTANCE
         const deployToAcceptanceStage = new DeploymentStage(this, TargetEnvironments.ACCEPTANCE, props);
@@ -177,6 +184,43 @@ export class PipelineStack extends Stack {
             commands: ['npm ci', 'npm run build', 'npx aws-cdk synth -c pipeline=true'], // Build and synthesize the CDK app
             env: getTargetEnvironmentsEnvVariablesAsObject(),
         };
+    };
+    
+    protected makePostmanCodeBuild(targetEnvironment: TargetEnvironment, codeSource: CodePipelineSource) {
+        const defaultBuildSpecProps: CodeBuildStepProps = this.makePostmanCodeBuildDefaultBuildspec(targetEnvironment, codeSource);
+        return new CodeBuildStep(`test-run-postman-${targetEnvironment.uniqueName}`, defaultBuildSpecProps);
+    }
+
+    makePostmanCodeBuildDefaultBuildspec (targetEnvironment: TargetEnvironment, codeSource: CodePipelineSource) {
+
+        const testReportsArn = Fn.importValue(StackExports.POSTMAN_REPORT_GROUP_ARN_REF);
+    
+        const defaultBuildSpecProps: CodeBuildStepProps = {
+            buildEnvironment: {
+                buildImage: LinuxBuildImage.STANDARD_7_0,
+            },
+            input: codeSource,
+            installCommands: [
+                `aws codeartifact login --tool npm --repository ${COMMON_REPO} --domain ${DOMAIN_NAME} --domain-owner ${TargetEnvironments.DEVOPS.account}`,
+                'npm install -g newman',
+            ],
+            commands: [
+                `echo "Running API tests at ${targetEnvironment.uniqueName}"`,
+                `newman run -r junit ${PIPELINES_POSTMAN_SPEC_DEF_FILE}`,
+            ],
+            partialBuildSpec: BuildSpec.fromObject({
+    
+                reports: {
+                    [testReportsArn]: {
+                        files: ['**/*'],
+                        'base-directory': 'newman',
+                        'discard-paths': true,
+                        type: ReportGroupType.TEST,
+                    },
+                },
+            }),
+        };
+        return defaultBuildSpecProps;
     };
 }
 
