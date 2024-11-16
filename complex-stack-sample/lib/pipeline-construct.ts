@@ -1,7 +1,6 @@
 import { Construct } from 'constructs';
 import { StackProps, Stack, Stage, Fn, Tags } from 'aws-cdk-lib';
 import { CodeBuildStep, CodeBuildStepProps, CodePipeline, CodePipelineSource, ManualApprovalStep } from 'aws-cdk-lib/pipelines';
-import { ComplexStackSampleStack } from './complex-stack-sample-stack';
 import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, 
     getTargetEnvironmentsEnvVariablesAsObject, INNER_PIPELINE_INPUT_FOLDER,
     makeVersionedPipelineName, DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, 
@@ -46,18 +45,21 @@ const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
     return `deployment-${targetEnvironment.uniqueName}-${targetEnvironment.account}-${targetEnvironment.region}`;
 };
 
-export interface PipelineStackProps extends StackProps {
-    containedStackProps: StackProps;
+export type ContainedStackClassConstructor<P extends StackProps = StackProps> = new(c: Construct, id: string, p: P) => Stack;
+
+export interface PipelineStackProps<P extends StackProps = StackProps> extends StackProps {
+    containedStackProps?: P;
     containedStackName: string;
     containedStackVersion: string;
+    containedStackClass: ContainedStackClassConstructor<P>,
 }
 
-export class PipelineStack extends Stack {
+export class PipelineStack <P extends StackProps> extends Stack {
     protected readonly pipeline: CodePipeline;
     protected readonly codeSource: CodePipelineSource;
     protected readonly stagesWithtransitionsToDisable: string[] = []; 
     
-    public createDeploymentStage(scope: Construct, targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps) {
+    public createDeploymentStage(scope: Construct, targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps<P>) {
             
         class DeploymentStage extends Stage {
             readonly containedStack: Stack;
@@ -67,7 +69,7 @@ export class PipelineStack extends Stack {
                     stageName: makeDeploymentStageName(targetEnvironment),
 
                 });
-                this.containedStack = new ComplexStackSampleStack(this, 'target-stack', {
+                this.containedStack = new pipelineStackProps.containedStackClass(this, 'target-stack', {
             
                     ...pipelineStackProps.containedStackProps,
                     stackName: pipelineStackProps.containedStackName,
@@ -75,7 +77,7 @@ export class PipelineStack extends Stack {
                         account: targetEnvironment.account,
                         region: targetEnvironment.region,
                     }
-                });
+                } as P);
                 Tags.of(this.containedStack).add(STACK_VERSION_TAG, pipelineStackProps.containedStackVersion);
                 Tags.of(this.containedStack).add(STACK_DEPLOYED_AT_TAG, (new Date()).toISOString());
             }
@@ -100,14 +102,14 @@ export class PipelineStack extends Stack {
         }
     }
 
-    protected makeManualApprovalStep(targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps) {
+    protected makeManualApprovalStep(targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps<P>) {
         
         return new ManualApprovalStep(`${pipelineStackProps.containedStackName}-approval-promote-to-${targetEnvironment.uniqueName}`, {
             comment: `Approve to deploy to ${targetEnvironment.uniqueName}`,
         });
     }
 
-    constructor(scope: Construct, id: string, props: PipelineStackProps) {
+    constructor(scope: Construct, id: string, props: PipelineStackProps<P>) {
         super(scope, id, props);
 
         const sourceBucket = Bucket.fromBucketAttributes(this, 'pipeline-source-bucket', {
@@ -142,7 +144,7 @@ export class PipelineStack extends Stack {
     }
 
     
-    createCrossRegionReplicationsBase(props: PipelineStackProps) {
+    createCrossRegionReplicationsBase(props: PipelineStackProps<P>) {
         const encryptionKey = Key.fromKeyArn(
             this,
             'artifact-bucket-key-arn',
