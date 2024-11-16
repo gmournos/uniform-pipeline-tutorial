@@ -1,0 +1,6 @@
+{
+    "version": "0.0.1",
+    "stackName": "StaticEnvSpecificSampleStack",
+    "description": "Sample Stack with env specific assets"
+}
+  
