@@ -1,0 +1,22 @@
+{
+  "name": "env-specific-sample",
+  "version": "0.1.0",
+  "bin": {
+    "env-specific-sample": "bin/env-specific-sample.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "@tsconfig/node20": "^20.1.4",
+    "@types/node": "22.9.0",
+    "@uniform-pipelines/inner-factory": "^1.0.0",
+    "aws-cdk": "2.167.1",
+    "aws-cdk-lib": "2.167.1",
+    "constructs": "^10.4.2",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.6.3"
+  }
+}
