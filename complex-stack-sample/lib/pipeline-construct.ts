@@ -7,7 +7,7 @@ import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments,
     makeVersionedPipelineName, DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, 
     STACK_NAME_TAG, STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName, 
     CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO, PIPELINES_BUILD_SPEC_DEF_FILE } from '@uniform-pipelines/model';
-import { PIPELINES_POSTMAN_SPEC_DEF_FILE, StackExports } from '../../library/model/dist';
+import { PIPELINES_POSTMAN_SPEC_DEF_FILE, StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE } from '../../library/model/dist';
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Key } from 'aws-cdk-lib/aws-kms';
@@ -33,6 +33,10 @@ export const hasBuildSpec = () => {
 
 export const hasPostmanSpec = () => {
     return fileExists(PIPELINES_POSTMAN_SPEC_DEF_FILE);
+};
+
+export const hasPostmanBuildSpec = () => {
+    return fileExists(PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE);
 };
 
 const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
@@ -188,7 +192,10 @@ export class PipelineStack extends Stack {
     
     protected makePostmanCodeBuild(targetEnvironment: TargetEnvironment, codeSource: CodePipelineSource) {
         const defaultBuildSpecProps: CodeBuildStepProps = this.makePostmanCodeBuildDefaultBuildspec(targetEnvironment, codeSource);
-        return new CodeBuildStep(`test-run-postman-${targetEnvironment.uniqueName}`, defaultBuildSpecProps);
+        const buildSpecProps = hasPostmanBuildSpec() ? overrideBuildSpecPropsFromBuildspecYamlFile(defaultBuildSpecProps,
+            PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE) : defaultBuildSpecProps;
+        
+        return new CodeBuildStep(`test-run-postman-${targetEnvironment.uniqueName}`, buildSpecProps);
     }
 
     makePostmanCodeBuildDefaultBuildspec (targetEnvironment: TargetEnvironment, codeSource: CodePipelineSource) {
