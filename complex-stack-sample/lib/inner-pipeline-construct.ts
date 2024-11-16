@@ -96,7 +96,13 @@ export class InnerPipelineConstruct <P extends StackProps> extends Construct {
             codePipeline: this.createCrossRegionReplicationsBase(props),
             // Define the synthesis step
             synth: this.makeMainBuildStep(this.codeSource),
+            selfMutation: this.needsSelfMutation(this),
         });
+    }
+    
+    needsSelfMutation(scope: Construct) {
+        const mutationFromContext = scope.node.tryGetContext("selfMutation");
+        return  mutationFromContext === 'true';
     }
 
     createCrossRegionReplicationsBase(props: InnerPipelineConstructProps<P>) {
