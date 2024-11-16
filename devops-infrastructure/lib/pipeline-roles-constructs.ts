@@ -1,6 +1,7 @@
-import { CfnOutput, Stack } from 'aws-cdk-lib';
+import { CfnOutput, DefaultStackSynthesizer, Stack } from 'aws-cdk-lib';
 import {
     AccountPrincipal,
+    ArnPrincipal,
     CompositePrincipal,
     Effect,
     IRole,
@@ -16,8 +17,11 @@ import {
     INNER_PIPELINE_INPUT_FOLDER,
     SOURCE_CODE_KEY,
     TargetEnvironments, PipelineRoles, StackExports,
-    makeCdkDefaultDeployRole
+    getCrossRegionTargetEnvironments,
+    getSupportBucketName,
+    getSupportKeyAliasName
 } from '../../library/model/dist';
+import { KmsAliasArnReaderConstruct } from '@uniform-pipelines/cdk-util';
 
 const getKmsBucketReadPermissions = (bucketArn: string, bucketKeyArn: string) => {
     return [
@@ -63,38 +67,224 @@ interface PipelinesRoleConstructProps {
     artifactBucketKeyArn: string;
     artifactBucketArn: string;
     sourceBucketArn: string;
+    kmsFinderServiceToken: string;
 }
 
 export class PipelinesRoleConstruct extends Construct {
+    private filePublishingPrincipals: ArnPrincipal[];
+    private deployAccountPrincipals: ArnPrincipal[];
     private codeArtifactPermissions: PolicyStatement[];
     private cloudwatchPermissions: PolicyStatement[];
     private codeBuildPermissions: PolicyStatement[];
-    private readSourceBucketPermissions: PolicyStatement[];
+    private outerPipelineReadSourceBucketPermissions: PolicyStatement[];
+    private innerPipelineReadSourceBucketPermissions: PolicyStatement[];
     private writeSourceBucketPermissions: PolicyStatement[];
     private artifactBucketWritePermissions: PolicyStatement[];
+    private artifactBucketReadPermissions: PolicyStatement[];
     private cloudFormationPermnissions: PolicyStatement[];
-
+    private postmanReportPermissions: PolicyStatement[];
+    private crossRegionReplicationPermissions: PolicyStatement[];
+    
     outerPipelineActionsRole: IRole;
     outerPipelineMainRole: IRole;
     outerPipelineDeploymentRole: IRole;
 
+    innerPipelineMainRole: Role;
+    innerPiplelineCodeSourceActionRole: IRole;
+    innerPipelineBuildActionRole: IRole;
+    innerPipelineManualApprovalActionRole: IRole;
+    innerPipelineSelfMutationCodebuildProjectServiceRole: IRole;
+    innerPipelineFileAssetsCodebuildProjectServiceRole: IRole;
+    innerPipelineCdkCodeBuildProjectServiceRole: IRole;
+    innerPipelinePostmanCodeBuildProjectServiceRole: IRole;
+    
+
     constructor(scope: Construct, id: string, props: PipelinesRoleConstructProps) {
         super(scope, id);
+        this.deployAccountPrincipals = Object.values(TargetEnvironments).map(targetEnvironment =>
+            new ArnPrincipal(`arn:aws:iam::${targetEnvironment.account}:role/cdk-${DefaultStackSynthesizer.DEFAULT_QUALIFIER}-deploy-role-${targetEnvironment.account}-${targetEnvironment.region}`)
+        );
+        this.filePublishingPrincipals = Object.values(TargetEnvironments).map(targetEnvironment =>
+            new ArnPrincipal(`arn:aws:iam::${targetEnvironment.account}:role/cdk-${DefaultStackSynthesizer.DEFAULT_QUALIFIER}-file-publishing-role-${targetEnvironment.account}-${targetEnvironment.region}`)
+        );
+        
         this.codeArtifactPermissions = this.makeCodeArtifactPermissions();
         this.cloudwatchPermissions = this.makeCloudwatchPermissions();
         this.codeBuildPermissions = this.makeCodeBuildPermissions();
-        this.readSourceBucketPermissions = this.makeReadSourceBucketPermissions(props.sourceBucketArn);
+        this.outerPipelineReadSourceBucketPermissions = this.makeOuterPipelineReadSourceBucketPermissions(props.sourceBucketArn);
+        this.innerPipelineReadSourceBucketPermissions = this.makeInnerPipelineReadSourceBucketPermissions(props.sourceBucketArn);
         this.writeSourceBucketPermissions = this.makeWriteSourceBucketPermissions(props.sourceBucketArn);
         this.cloudFormationPermnissions = this.makeCloudFormationPermissions();
-
+        this.postmanReportPermissions = this.makePostmanReportPermissions();
+        this.crossRegionReplicationPermissions = this.makeCrossRegionReplicationPermissions(props.kmsFinderServiceToken);
+        
         this.artifactBucketWritePermissions = getKmsBucketWritePermissions(
             props.artifactBucketArn,
             props.artifactBucketKeyArn,
         );
+        this.artifactBucketReadPermissions = getKmsBucketReadPermissions(
+            props.artifactBucketArn,
+            props.artifactBucketKeyArn,
+        );
+
+        this.innerPipelineMainRole = this.makeInnerPipelineMainRole();
+        this.innerPiplelineCodeSourceActionRole = this.makeInnerPiplelineCodeSourceActionRole();
+        this.innerPipelineBuildActionRole = this.makeInnerPipelineBuildActionRole(this.innerPipelineMainRole.roleArn);
+        this.innerPipelineManualApprovalActionRole = this.makeInnerPipelineManualApprovalActionRole();
+        this.innerPipelineSelfMutationCodebuildProjectServiceRole = this.makeInnerPipelineSelfMutationCodebuildProjectServiceRole();
+        this.innerPipelineFileAssetsCodebuildProjectServiceRole = this.makeInnerPipelineFileAssetsCodebuildProjectServiceRole();
+        this.innerPipelinePostmanCodeBuildProjectServiceRole = this.makeInnerPipelinePostmanCodeBuildProjectServiceRole();
+        this.innerPipelineCdkCodeBuildProjectServiceRole = this.makeInnerPipelineCdkCodeBuildProjectServiceRole();
+        this.allowInnerPipelineMainRoleAssumeEverything();
+
         this.outerPipelineActionsRole = this.makeOuterPipelineActionsRole();
         this.outerPipelineMainRole = this.makeOuterPipelineMainRole();
         this.outerPipelineDeploymentRole = this.makeOuterPipelineDeploymentRole();
     }
+
+    makeInnerPipelineMainRole() {
+        const pipelineMainRole = new Role(this, 'inner-pipeline-main-role', {
+            roleName: PipelineRoles.INNER_PIPELINE_MAIN_ROLE,
+            assumedBy: new ServicePrincipal('codepipeline.amazonaws.com'),
+        });
+
+        [ ...this.artifactBucketWritePermissions,  ...this.codeArtifactPermissions, ...this.crossRegionReplicationPermissions].forEach(permission => pipelineMainRole.addToPolicy(permission));
+
+        return pipelineMainRole;
+    }
+    
+    makeInnerPiplelineCodeSourceActionRole() {
+        // CodeBuild Source Stage/Action that reads the code source
+        const innerPipelineCodeSourceActionRole = new Role(this, 'inner-pipeline-code-source-role', {
+            roleName: PipelineRoles.INNER_PIPELINE_CODEBUILD_ROLE_SOURCE_STAGE_SOURCE_ACTION,
+            assumedBy: new AccountPrincipal(Stack.of(this).account),
+        });
+
+        [...this.innerPipelineReadSourceBucketPermissions, ...this.artifactBucketWritePermissions].forEach(permission => innerPipelineCodeSourceActionRole.addToPolicy(permission));
+        return innerPipelineCodeSourceActionRole;
+    }
+
+    makeInnerPipelineBuildActionRole(innerPipelineRoleArn: string) {
+        // CodeBuild role used by Build Stage/Synth Action
+        // Also used in UpdatePipeline Stage/SelfMutate Action
+        // Also used in Assets Stage/Assets Action
+        // Also used in Deploy Stage/Postman Action
+
+        const buildActionRole = new Role(this, 'inner-pipeline-synth-action-role', {
+            roleName: PipelineRoles.INNER_PIPELINE_CODEBUILD_ROLE_BUILD_STAGE_BUILD_CDK_ACTION,
+            assumedBy: new ArnPrincipal(innerPipelineRoleArn),
+        });
+
+        [...this.codeBuildPermissions].forEach(permission => buildActionRole.addToPolicy(permission));
+        return buildActionRole;
+    }
+    
+    makeInnerPipelineManualApprovalActionRole() {
+        // Deploy stages/Manual Approval Action roles
+        const innerPipelineManualApprovalActionRole = new Role(this, 'inner-pipeline-manual-approval-role', {
+            roleName: PipelineRoles.INNER_PIPELINE_CODEBUILD_ROLE_DEPLOY_STAGE_APPROVAL_ACTION,
+            assumedBy: new AccountPrincipal(Stack.of(this).account),
+        });
+        return innerPipelineManualApprovalActionRole;
+    }
+
+    makeInnerPipelineSelfMutationCodebuildProjectServiceRole() {
+        // Self Mutation Codebuild project Service Role
+        const selfMutationServiceRole = new Role(this, 'inner-pipeline-self-mutation-step-role', {
+            roleName: PipelineRoles.INNER_PIPELINE_CODEBUILD_SERVICE_ROLE_SELFUPDATE_PROJECT,
+            assumedBy: new ServicePrincipal('codebuild.amazonaws.com'),
+        });
+
+        const assumeLocalDeploymentRolesPermission = new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['sts:AssumeRole'],
+            resources: [
+                `arn:aws:iam::${TargetEnvironments.DEVOPS.account}:role/cdk-${DefaultStackSynthesizer.DEFAULT_QUALIFIER}-deploy-role-${TargetEnvironments.DEVOPS.account}-${TargetEnvironments.DEVOPS.region}`,
+                `arn:aws:iam::${TargetEnvironments.DEVOPS.account}:role/cdk-${DefaultStackSynthesizer.DEFAULT_QUALIFIER}-file-publishing-role-${TargetEnvironments.DEVOPS.account}-${TargetEnvironments.DEVOPS.region}`,
+                `arn:aws:iam::${TargetEnvironments.DEVOPS.account}:role/cdk-${DefaultStackSynthesizer.DEFAULT_QUALIFIER}-image-publishing-role-${TargetEnvironments.DEVOPS.account}-${TargetEnvironments.DEVOPS.region}`,
+            ],
+        });
+
+        const cloudformationPermission = new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['cloudformation:DescribeStacks'],
+            resources: ['*'],
+        });
+
+        const listBucketsPermission = new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['s3:ListBucket'],
+            resources: ['*'],
+        });
+
+        [...this.cloudwatchPermissions, assumeLocalDeploymentRolesPermission, ...this.artifactBucketReadPermissions,
+            cloudformationPermission, listBucketsPermission].forEach(permission => selfMutationServiceRole.addToPolicy(permission));
+
+        return selfMutationServiceRole;
+    }
+
+    makeInnerPipelineFileAssetsCodebuildProjectServiceRole() {
+        const assetsServiceRole = new Role(this, 'inner-pipeline-assets-role', {
+            roleName: PipelineRoles.INNER_PIPELINE_CODEBUILD_SERVICE_ROLE_ASSETS_PROJECT,
+            assumedBy: new CompositePrincipal(
+                new AccountPrincipal(Stack.of(this).account),
+                new ServicePrincipal('codebuild.amazonaws.com'),
+            ),
+        });
+        const filePublishingAccountArns = this.filePublishingPrincipals.map(accountArn => accountArn.arn);
+
+        const assumeRolesPermission = new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['sts:AssumeRole'],
+            resources: filePublishingAccountArns,
+        });
+
+        [assumeRolesPermission, ...this.cloudwatchPermissions, ...this.codeBuildPermissions, ...this.postmanReportPermissions, 
+            ...this.artifactBucketReadPermissions].forEach(permission => assetsServiceRole.addToPolicy(permission));
+
+        return assetsServiceRole;
+    }
+
+    makeInnerPipelineCdkCodeBuildProjectServiceRole() {
+        // PipelineRole shared across all pipelines
+        const buildServiceRole = new Role(this, 'inner-pipeline-build-step-role', {
+            roleName: PipelineRoles.INNER_PIPELINE_CODEBUILD_SERVICE_ROLE_CDK_BUILD_PROJECT,
+            assumedBy: new ServicePrincipal('codebuild.amazonaws.com'),
+        });
+
+        [...this.postmanReportPermissions, ...this.cloudwatchPermissions, ...this.artifactBucketWritePermissions, ...this.codeArtifactPermissions, 
+            ...this.innerPipelineReadSourceBucketPermissions].forEach(permission => buildServiceRole.addToPolicy(permission));
+        
+        return buildServiceRole;
+    }
+
+    
+    makeInnerPipelinePostmanCodeBuildProjectServiceRole() {
+        // PipelineRole shared across all pipelines
+        const postmanServiceRole = new Role(this, 'inner-pipeline-postman-step-role', {
+            roleName: PipelineRoles.INNER_PIPELINE_CODEBUILD_SERVICE_ROLE_POSTMAN_BUILD_PROJECT,
+            assumedBy: new ServicePrincipal('codebuild.amazonaws.com'),
+        });
+
+        [...this.postmanReportPermissions, ...this.cloudwatchPermissions, ...this.artifactBucketWritePermissions, ...this.codeArtifactPermissions ].forEach(
+            permission => postmanServiceRole.addToPolicy(permission));
+        return postmanServiceRole;
+    }
+
+    allowInnerPipelineMainRoleAssumeEverything() {
+        const deploymentAccountArns = this.deployAccountPrincipals.map(accountArn => accountArn.arn);
+        const assumeRolesPermission = new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['sts:AssumeRole'],
+            resources: [...deploymentAccountArns, this.innerPiplelineCodeSourceActionRole.roleArn, 
+                this.innerPipelineManualApprovalActionRole.roleArn, this.innerPipelineBuildActionRole.roleArn,
+                this.innerPipelineCdkCodeBuildProjectServiceRole.roleArn, this.innerPipelineFileAssetsCodebuildProjectServiceRole.roleArn, 
+                this.innerPipelineSelfMutationCodebuildProjectServiceRole.roleArn, this.innerPipelinePostmanCodeBuildProjectServiceRole.roleArn],
+        });
+
+        this.innerPipelineMainRole.addToPolicy(assumeRolesPermission);
+    }
+
 
     makeOuterPipelineMainRole() {
         const outerPipelineMainRole = new Role(this, 'outer-pipeline-role', {
@@ -131,7 +321,7 @@ export class PipelinesRoleConstruct extends Construct {
             ...this.codeArtifactPermissions,
             ...this.cloudwatchPermissions,
             ...this.codeBuildPermissions,
-            ...this.readSourceBucketPermissions,
+            ...this.outerPipelineReadSourceBucketPermissions,
             ...this.writeSourceBucketPermissions,
             ...this.artifactBucketWritePermissions,
             ...this.cloudFormationPermnissions,
@@ -159,6 +349,23 @@ export class PipelinesRoleConstruct extends Construct {
             exportName: StackExports.OUTER_PIPELINE_DEPLOYMENT_ROLE_ARN_REF,
         });
         return outerPipelineDeploymentRole;
+    }
+
+    makeCrossRegionReplicationPermissions(kmsFinderServiceToken: string) {
+        const result : PolicyStatement[] = [];
+        const crossRegionEnvironments = getCrossRegionTargetEnvironments(TargetEnvironments.DEVOPS.region, TargetEnvironments);
+        if (crossRegionEnvironments.size > 0) {
+
+            const kmsAliasArnReader = new KmsAliasArnReaderConstruct(this, 'kms-alias-reader-construct', {
+                serviceToken: kmsFinderServiceToken,
+            });
+            for (const [crossRegion, targetEnvironments] of crossRegionEnvironments) {
+                const bucketArn = `arn:aws:s3:::${getSupportBucketName(crossRegion)}`;
+                const keyArn = kmsAliasArnReader.getKeyArn(getSupportKeyAliasName(crossRegion), crossRegion);
+                result.push(...getKmsBucketWritePermissions(bucketArn, keyArn));
+            }
+        }
+        return result;
     }
  
     makeCloudFormationPermissions() {
@@ -191,7 +398,7 @@ export class PipelinesRoleConstruct extends Construct {
         ];
     }
 
-    makeReadSourceBucketPermissions(sourceBucketArn: string) {
+    makeOuterPipelineReadSourceBucketPermissions(sourceBucketArn: string) {
         return [
             new PolicyStatement({
                 effect: Effect.ALLOW,
@@ -201,6 +408,16 @@ export class PipelinesRoleConstruct extends Construct {
                     's3:GetBucketLocation', // To locate the bucket
                 ],
                 resources: [`${sourceBucketArn}/${SOURCE_CODE_KEY}`],
+            }),
+        ];
+    }
+
+    makeInnerPipelineReadSourceBucketPermissions(sourceBucketArn: string) {
+        return [
+            new PolicyStatement({
+                effect: Effect.ALLOW,
+                actions: ['s3:GetObject*', 's3:GetBucket*', 's3:List*'],
+                resources: [sourceBucketArn, `${sourceBucketArn}/${INNER_PIPELINE_INPUT_FOLDER}/*`],
             }),
         ];
     }
@@ -226,6 +443,18 @@ export class PipelinesRoleConstruct extends Construct {
                 resources: [`arn:aws:codebuild:eu-west-1:${TargetEnvironments.DEVOPS.account}:project/*`],
             }),
         ];
+    }
+
+    makePostmanReportPermissions() {
+        const postmanReportPermissions = [
+            new PolicyStatement({
+                effect: Effect.ALLOW,
+                actions: ['codebuild:CreateReport', 'codebuild:UpdateReport', 'codebuild:BatchPutTestCases',
+                    'codebuild:BatchPutCodeCoverages', 'codebuild:CreateReportGroup'],
+                resources: [`arn:aws:codebuild:eu-west-1:${TargetEnvironments.DEVOPS.account}:report-group/*`, `arn:aws:codebuild:eu-west-1:${TargetEnvironments.DEVOPS.account}:report-group`],
+            }),
+        ];
+        return postmanReportPermissions;
     }
 
     makeCodeArtifactPermissions() {

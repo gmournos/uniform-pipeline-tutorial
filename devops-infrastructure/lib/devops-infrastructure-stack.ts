@@ -6,6 +6,7 @@ import { ArtifactBucketConstruct } from './artifact-bucket-construct';
 import { OuterLevelPipelineConstruct } from './outer-level-pipeline-construct';
 import { PipelinesRoleConstruct } from './pipeline-roles-constructs';
 import { PipelineMacrosConstruct } from './pipeline-macros-construct';
+import { KmsFinderResourcesConstruct } from './kms-finder-resources-construct';
 
 export class DevopsInfrastructureStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -13,10 +14,13 @@ export class DevopsInfrastructureStack extends cdk.Stack {
         new CodeArtifactCdkConstruct(this, 'codeartifact-construct');
         const sourceBucketConstruct = new SourceCodeBucketConstruct(this, 'source-code-bucket');
         const artifactBucketConstruct = new ArtifactBucketConstruct(this, 'artifact-bucket');
+        const kmsFinder = new KmsFinderResourcesConstruct(this, 'kms-finder-resources');
+
         const pipelineRolesConstruct = new PipelinesRoleConstruct(this, 'pipeline-roles', {
             artifactBucketArn: artifactBucketConstruct.artifactBucket.bucketArn,
             artifactBucketKeyArn: artifactBucketConstruct.artifactBucketEncryptionKey.keyArn,
             sourceBucketArn: sourceBucketConstruct.sourceBucket.bucketArn,
+            kmsFinderServiceToken: kmsFinder.serviceToken,
         });
 
         new OuterLevelPipelineConstruct(this, 'outer-pipeline', {
@@ -27,7 +31,7 @@ export class DevopsInfrastructureStack extends cdk.Stack {
             actionsRole: pipelineRolesConstruct.outerPipelineActionsRole,
             deploymentRole: pipelineRolesConstruct.outerPipelineDeploymentRole,
         });
-        new PipelineMacrosConstruct(this, 'pipeline-macros')
+        new PipelineMacrosConstruct(this, 'pipeline-macros');
         
     }
 }
