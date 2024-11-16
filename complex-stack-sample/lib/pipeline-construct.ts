@@ -12,6 +12,9 @@ import { Key } from 'aws-cdk-lib/aws-kms';
 import { KmsAliasArnReaderConstruct } from '@uniform-pipelines/cdk-util';
 import { Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { CfnPipeline } from 'aws-cdk-lib/aws-codepipeline';
+import * as fs from 'fs';
+import * as yaml from 'js-yaml';
+import { BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
 
 const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
     return `deployment-${targetEnvironment.uniqueName}-${targetEnvironment.account}-${targetEnvironment.region}`;
@@ -157,3 +160,33 @@ const disableTransitions = (pipeline: CfnPipeline, stageNames: string[], disable
     pipeline.addPropertyOverride("DisableInboundStageTransitions", disableTransitionsPropertyParams);
 };
 
+const overrideBuildSpecPropsFromBuildspecYamlFile = (defaultBuildSpecProps: CodeBuildStepProps, buildspecFilename: string) => {
+    const overridingObject = yaml.load(fs.readFileSync(buildspecFilename, 'utf8')) as Record<string, any>;
+
+    const buildSpecProps = { ...defaultBuildSpecProps } as any;
+
+    const installCommands = overridingObject.phases?.install?.commands;
+    if (installCommands) {
+        buildSpecProps.installCommands = installCommands;
+        delete overridingObject.phases.install.commands;
+    }
+    const buildCommands = overridingObject.phases?.build?.commands;
+    if (buildCommands) {
+        buildSpecProps.commands = buildCommands;
+        delete overridingObject.phases?.build.commands;
+    }
+
+    const baseDirectory = overridingObject.artifacts?.['base-directory'];
+    if (baseDirectory) {
+        buildSpecProps.baseDirectory = baseDirectory;
+        delete overridingObject.artifacts['base-directory'];
+    }
+
+    const buildImage = overridingObject['build-image'] as string;
+    if (buildImage && LinuxBuildImage[buildImage as keyof typeof LinuxBuildImage]) {
+        buildSpecProps.buildEnvironment.buildImage = LinuxBuildImage[buildImage as keyof typeof LinuxBuildImage];
+    }
+
+    buildSpecProps.partialBuildSpec = BuildSpec.fromObject(overridingObject);
+    return buildSpecProps;
+};
