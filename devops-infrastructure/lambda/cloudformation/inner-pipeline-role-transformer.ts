@@ -1,4 +1,4 @@
-import { PipelineRoles, TargetEnvironments } from '../../../library/model';
+import { PipelineRoles, TargetEnvironments } from '@uniform-pipelines/model';
 
 const SOURCE_STAGE = 'Source';
 const BUILD_STAGE = 'Build';

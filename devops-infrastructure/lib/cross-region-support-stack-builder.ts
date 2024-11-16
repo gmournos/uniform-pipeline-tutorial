@@ -10,7 +10,7 @@ import {
     TargetEnvironment,
     TargetEnvironments,
     makeCdkDefaultDeployRole,
-} from '../../library/model';
+} from '@uniform-pipelines/model';
 
 export class CrossRegionSupportStackBuilder {
         

@@ -1,6 +1,6 @@
 import { Bucket, EventType, IBucket } from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
-import { SOURCE_CODE_BUCKET_NAME, StackExports, OUTER_PIPELINE_NAME } from "../../library/model";
+import { SOURCE_CODE_BUCKET_NAME, StackExports, OUTER_PIPELINE_NAME } from "@uniform-pipelines/model";
 import { CfnOutput, Stack } from "aws-cdk-lib";
 import { join } from "path";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";

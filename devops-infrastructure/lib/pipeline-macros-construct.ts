@@ -4,7 +4,7 @@ import { join } from 'path';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import { CHANGESET_RENAME_MACRO, CHANGESET_RENAME_MACRO_FUNCTION, CHANGESET_RENAME_MACRO_ROLE,
-    getTargetEnvironmentsEnvVariablesAsObject, ROLE_REASSIGN_MACRO, ROLE_REASSIGN_MACRO_FUNCTION } from '../../library/model/dist';
+    getTargetEnvironmentsEnvVariablesAsObject, ROLE_REASSIGN_MACRO, ROLE_REASSIGN_MACRO_FUNCTION } from '@uniform-pipelines/model';
 import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 
 export class PipelineMacrosConstruct extends Construct {

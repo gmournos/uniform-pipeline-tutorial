@@ -20,7 +20,7 @@ import {
     getCrossRegionTargetEnvironments,
     getSupportBucketName,
     getSupportKeyAliasName
-} from '../../library/model/dist';
+} from '@uniform-pipelines/model';
 import { KmsAliasArnReaderConstruct } from '@uniform-pipelines/cdk-util';
 
 const getKmsBucketReadPermissions = (bucketArn: string, bucketKeyArn: string) => {

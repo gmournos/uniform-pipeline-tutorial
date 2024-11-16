@@ -2,7 +2,7 @@ import { Construct } from 'constructs';
 import { CfnOutput } from 'aws-cdk-lib';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
-import { KMS_ALIAS_FINDER_FUNCTION, PipelineRoles, StackExports  } from '../../library/model/dist';
+import { KMS_ALIAS_FINDER_FUNCTION, PipelineRoles, StackExports  } from '@uniform-pipelines/model';
 import { Effect, ManagedPolicy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import * as path from 'path';
 import { Provider } from 'aws-cdk-lib/custom-resources';

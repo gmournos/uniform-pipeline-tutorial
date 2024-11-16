@@ -154,7 +154,9 @@ export class PipelineStack extends Stack {
         const crossRegionEnvironments = getCrossRegionTargetEnvironments(TargetEnvironments.DEVOPS.region, TargetEnvironments);
         if (crossRegionEnvironments.size > 0) {
 
-            const kmsAliasArnReader = new KmsAliasArnReaderConstruct(this, 'kms-alias-reader-construct');
+            const kmsAliasArnReader = new KmsAliasArnReaderConstruct(this, 'kms-alias-reader-construct', {
+                serviceToken: Fn.importValue(StackExports.KMS_FINDER_PROVIDER_REF),
+            });
             for (const [crossRegion, targetEnvironments] of crossRegionEnvironments) {
                 
                 const replicationBucket = Bucket.fromBucketAttributes(this, `replication-bucket-${crossRegion}`, {

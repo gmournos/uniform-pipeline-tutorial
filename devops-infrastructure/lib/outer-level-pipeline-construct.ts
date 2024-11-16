@@ -6,7 +6,7 @@ import { Construct } from 'constructs';
 import { COMMON_REPO, DOMAIN_NAME, OUTER_PIPELINE_NAME, TargetEnvironments, 
     getTargetEnvironmentsEnvVariablesAsCodeBuildObject, SOURCE_CODE_KEY, 
     INNER_PIPELINE_INPUT_FOLDER, INNER_PIPELINE_STACK_TEMPLATE_NAME, 
-    LIBRARY_NAMESPACE} from '../../library/model/dist';
+    LIBRARY_NAMESPACE} from '@uniform-pipelines/model';
 import { IRole } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Key } from 'aws-cdk-lib/aws-kms';

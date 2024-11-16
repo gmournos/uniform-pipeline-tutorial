@@ -15,6 +15,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "22.8.4",
     "@uniform-pipelines/cdk-util": "^3.0.0",
+    "@uniform-pipelines/model": "^5.0.1",
     "aws-cdk": "2.164.1",
     "aws-cdk-lib": "2.164.1",
     "constructs": "^10.4.2",
