@@ -17,6 +17,10 @@ EXCLUDES=(
     --exclude "*.log"
     --exclude ".DS_Store"
     --exclude "coverage/*"
+    --exclude "ui/dist/*"
+    --exclude "ui/node_modules/*"
+    --exclude "ui/.angular/*"
+    --exclude "ui/.vscode/*"
 )
 
 # Create zip file excluding node_modules, dist, etc.
