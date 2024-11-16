@@ -17,16 +17,21 @@ const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
     return `deployment-${targetEnvironment.uniqueName}-${targetEnvironment.account}-${targetEnvironment.region}`;
 };
 
-export type ContainedStackClassConstructor<P extends StackProps = StackProps> = new(c: Construct, id: string, p: P) => Stack;
+export interface EnvironmentAware {
+    environmentName?: string;
+}
+export type ContainedStackPropsType = StackProps & Partial<EnvironmentAware>;
 
-export interface InnerPipelineConstructProps<P extends StackProps = StackProps> {
+export type ContainedStackClassConstructor<P extends ContainedStackPropsType = StackProps> = new(c: Construct, id: string, p: P) => Stack;
+
+export interface InnerPipelineConstructProps<P extends ContainedStackPropsType = StackProps> {
     containedStackProps?: P;
     containedStackName: string;
     containedStackVersion: string;
     containedStackClass: ContainedStackClassConstructor<P>,
 }
 
-export class InnerPipelineConstruct <P extends StackProps> extends Construct {
+export class InnerPipelineConstruct <P extends ContainedStackPropsType> extends Construct {
     readonly pipeline: CodePipeline;
     readonly codeSource: CodePipelineSource;
     readonly stagesWithtransitionsToDisable: string[] = []; 
@@ -48,7 +53,8 @@ export class InnerPipelineConstruct <P extends StackProps> extends Construct {
                     env: {
                         account: targetEnvironment.account,
                         region: targetEnvironment.region,
-                    }
+                    },
+                    environmentName: targetEnvironment.uniqueName,
                 } as P);
                 Tags.of(this.containedStack).add(STACK_VERSION_TAG, pipelineStackProps.containedStackVersion);
                 Tags.of(this.containedStack).add(STACK_DEPLOYED_AT_TAG, (new Date()).toISOString());

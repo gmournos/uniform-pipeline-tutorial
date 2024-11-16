@@ -6,11 +6,11 @@ import { TargetEnvironments, DEPLOYER_STACK_NAME_TAG, STACK_NAME_TAG, STACK_VERS
 
 import { CfnPipeline } from 'aws-cdk-lib/aws-codepipeline';
 import * as util from './inner-pipeline-util';
-import { InnerPipelineConstruct, InnerPipelineConstructProps } from './inner-pipeline-construct';
+import { ContainedStackPropsType, InnerPipelineConstruct, InnerPipelineConstructProps } from './inner-pipeline-construct';
 
-interface InnerPipelineStackProps<P extends StackProps = StackProps> extends StackProps, InnerPipelineConstructProps<P> {} 
+interface InnerPipelineStackProps<P extends ContainedStackPropsType = StackProps> extends StackProps, InnerPipelineConstructProps<P> {} 
 
-export class InnerPipelineStack<P extends StackProps = StackProps> extends Stack {
+export class InnerPipelineStack<P extends ContainedStackPropsType = StackProps> extends Stack {
             
     constructor(scope: Construct, id: string, props: InnerPipelineStackProps<P>) {
         super(scope, id, props);    
