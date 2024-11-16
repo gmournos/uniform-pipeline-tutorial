@@ -1,9 +1,8 @@
 import { Construct } from 'constructs';
 import { StackProps, Stack, Tags } from 'aws-cdk-lib';
 import { TargetEnvironments, DEPLOYER_STACK_NAME_TAG, STACK_NAME_TAG, STACK_VERSION_TAG, 
-    CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO } from '@uniform-pipelines/model';
-
-import { DeploymentPlan, getTargetEnvironmentFromIndividualDeploymentPlan } from '../../library/model/dist';
+    CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO,
+    DeploymentPlan, getTargetEnvironmentFromIndividualDeploymentPlan } from '@uniform-pipelines/model';
 
 import { CfnPipeline } from 'aws-cdk-lib/aws-codepipeline';
 import * as util from './inner-pipeline-util';

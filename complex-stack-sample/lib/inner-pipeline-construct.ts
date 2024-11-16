@@ -4,9 +4,7 @@ import { CodeBuildStep, CodeBuildStepProps, CodePipeline, CodePipelineSource, Ma
 import { TargetEnvironment, TargetEnvironments, 
     INNER_PIPELINE_INPUT_FOLDER, makeVersionedPipelineName, STACK_DEPLOYED_AT_TAG, 
     STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName, 
-    PIPELINES_BUILD_SPEC_DEF_FILE, StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE } from '@uniform-pipelines/model';
-
-import { getIndividualDeploymentPlan } from '../../library/model/dist';
+    PIPELINES_BUILD_SPEC_DEF_FILE, StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE, getIndividualDeploymentPlan } from '@uniform-pipelines/model';
 
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
