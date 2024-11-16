@@ -7,6 +7,7 @@ import { OuterLevelPipelineConstruct } from './outer-level-pipeline-construct';
 import { PipelinesRoleConstruct } from './pipeline-roles-constructs';
 import { PipelineMacrosConstruct } from './pipeline-macros-construct';
 import { KmsFinderResourcesConstruct } from './kms-finder-resources-construct';
+import { PostmanReportsConstruct } from './postman-reports-construct';
 
 export class DevopsInfrastructureStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -32,6 +33,10 @@ export class DevopsInfrastructureStack extends cdk.Stack {
             deploymentRole: pipelineRolesConstruct.outerPipelineDeploymentRole,
         });
         new PipelineMacrosConstruct(this, 'pipeline-macros');
+        new PostmanReportsConstruct(this, 'postman-reports', {
+            artifactBucket: artifactBucketConstruct.artifactBucket,
+        });
+        
         
     }
 }

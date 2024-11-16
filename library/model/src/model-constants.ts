@@ -19,7 +19,9 @@ export const CHANGESET_RENAME_MACRO_FUNCTION = `${LIBRARY_NAMESPACE}-changeset-r
 export const CHANGESET_RENAME_MACRO_ROLE = `${LIBRARY_NAMESPACE}-changeset-rename-macro-function-role`;
 export const KMS_ALIAS_FINDER_FUNCTION = `${LIBRARY_NAMESPACE}-kms-alias-finder-function`;
 
-export const PIPELINES_BUILD_SPEC_DEF_FILE = 'custom-buildspec.yaml'; 
+export const PIPELINES_BUILD_SPEC_DEF_FILE = 'custom-buildspec.yaml';
+export const POSTMAN_REPORT_GROUP =  `${LIBRARY_NAMESPACE}-postman-report-group`;
+
 
 export enum StackExports {
     PIPELINE_SOURCE_BUCKET_ARN_REF = `${LIBRARY_NAMESPACE}-source-bucket-arn-ref`,
@@ -29,6 +31,7 @@ export enum StackExports {
     OUTER_PIPELINE_ACTIONS_ROLE_ARN_REF = `${LIBRARY_NAMESPACE}-outer-actions-role-arn-ref`,
     OUTER_PIPELINE_DEPLOYMENT_ROLE_ARN_REF = `${LIBRARY_NAMESPACE}-deploymenent-role-arn-ref`,
     KMS_FINDER_PROVIDER_REF = `${LIBRARY_NAMESPACE}-kms-provider-ref`,
+    POSTMAN_REPORT_GROUP_ARN_REF = `${LIBRARY_NAMESPACE}-postman-report-group-arn-ref`,
 }
 
 export const STACK_NAME_TAG = `${LIBRARY_NAMESPACE}:contained-stack-name`;
