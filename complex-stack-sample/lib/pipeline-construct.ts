@@ -15,6 +15,21 @@ import { CfnPipeline } from 'aws-cdk-lib/aws-codepipeline';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
+import { PIPELINES_BUILD_SPEC_DEF_FILE } from '../../library/model/dist'
+
+export const fileExists = (filename: string) => {
+    try {
+        fs.accessSync(filename);
+        return true;
+    } catch (err) {
+        return false;
+    }
+};
+
+export const hasBuildSpec = () => {
+    return fileExists(PIPELINES_BUILD_SPEC_DEF_FILE);
+};
+
 
 const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
     return `deployment-${targetEnvironment.uniqueName}-${targetEnvironment.account}-${targetEnvironment.region}`;
@@ -63,15 +78,7 @@ export class PipelineStack extends Stack {
         const pipeline = new CodePipeline(this, 'cicd-pipeline', {
             codePipeline: this.createCrossRegionReplicationsBase(props),
             // Define the synthesis step
-            synth: new CodeBuildStep('synth-step', {
-                input: codeSource,
-                installCommands: [
-                    'npm install -g aws-cdk',
-                    `aws codeartifact login --tool npm --repository ${COMMON_REPO} --domain ${DOMAIN_NAME} --domain-owner ${TargetEnvironments.DEVOPS.account}`,
-                ],
-                commands: ['npm ci', 'npm run build', 'npx aws-cdk synth -c pipeline=true'], // Build and synthesize the CDK app
-                env: getTargetEnvironmentsEnvVariablesAsObject(),
-            }),
+            synth: this.makeMainBuildStep(codeSource),
         });
 
         // Add a deployment stage to TEST
@@ -148,6 +155,29 @@ export class PipelineStack extends Stack {
             crossAccountKeys: false,
         });
     }
+
+    makeMainBuildStep(codeSource: CodePipelineSource) {
+        const defaultBuildSpecProps = this.makeMainBuildStepDefaultBuildspec(codeSource);
+        
+        const buildSpecProps = hasBuildSpec() ? overrideBuildSpecPropsFromBuildspecYamlFile(defaultBuildSpecProps, PIPELINES_BUILD_SPEC_DEF_FILE) : defaultBuildSpecProps;
+
+        return new CodeBuildStep('synth-step', buildSpecProps);
+    }
+
+    makeMainBuildStepDefaultBuildspec = (codeSource: CodePipelineSource)  => {
+        return {
+            buildEnvironment: {
+                buildImage: LinuxBuildImage.STANDARD_7_0,
+            },
+            input: codeSource,
+            installCommands: [
+                'npm install -g aws-cdk',
+                `aws codeartifact login --tool npm --repository ${COMMON_REPO} --domain ${DOMAIN_NAME} --domain-owner ${TargetEnvironments.DEVOPS.account}`,
+            ],
+            commands: ['npm ci', 'npm run build', 'npx aws-cdk synth -c pipeline=true'], // Build and synthesize the CDK app
+            env: getTargetEnvironmentsEnvVariablesAsObject(),
+        };
+    };
 }
 
 const disableTransitions = (pipeline: CfnPipeline, stageNames: string[], disableReason: string) => {

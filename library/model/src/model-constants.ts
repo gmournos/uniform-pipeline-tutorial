@@ -19,7 +19,7 @@ export const CHANGESET_RENAME_MACRO_FUNCTION = `${LIBRARY_NAMESPACE}-changeset-r
 export const CHANGESET_RENAME_MACRO_ROLE = `${LIBRARY_NAMESPACE}-changeset-rename-macro-function-role`;
 export const KMS_ALIAS_FINDER_FUNCTION = `${LIBRARY_NAMESPACE}-kms-alias-finder-function`;
 
-
+export const PIPELINES_BUILD_SPEC_DEF_FILE = 'custom-buildspec.yaml'; 
 
 export enum StackExports {
     PIPELINE_SOURCE_BUCKET_ARN_REF = `${LIBRARY_NAMESPACE}-source-bucket-arn-ref`,
