@@ -55,6 +55,7 @@ export interface PipelineStackProps extends StackProps {
 export class PipelineStack extends Stack {
     protected readonly pipeline: CodePipeline;
     protected readonly codeSource: CodePipelineSource;
+    protected readonly stagesWithtransitionsToDisable: string[] = []; 
     
     public createDeploymentStage(scope: Construct, targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps) {
             
@@ -82,6 +83,9 @@ export class PipelineStack extends Stack {
 
         const resultStage = new DeploymentStage();
         const individualPlan = getIndividualDeploymentPlan(targetEnvironment, TargetEnvironments);
+        if (individualPlan.requiresApproval) {
+            this.stagesWithtransitionsToDisable.push(makeDeploymentStageName(targetEnvironment));
+        }
         
         const approval = individualPlan.requiresApproval ? {
             stackSteps: [ {
@@ -130,7 +134,7 @@ export class PipelineStack extends Stack {
         this.addTransform(CHANGESET_RENAME_MACRO);
         this.addTransform(ROLE_REASSIGN_MACRO);  
         disableTransitions(this.pipeline.pipeline.node.defaultChild as CfnPipeline, 
-            [makeDeploymentStageName(TargetEnvironments.ACCEPTANCE)], 'Avoid manual approval expiration after one week');
+            this.stagesWithtransitionsToDisable, 'Avoid manual approval expiration after one week');
 
         Tags.of(this.pipeline.pipeline).add(STACK_NAME_TAG, props.containedStackName);
         Tags.of(this.pipeline.pipeline).add(STACK_VERSION_TAG, props.containedStackVersion);
