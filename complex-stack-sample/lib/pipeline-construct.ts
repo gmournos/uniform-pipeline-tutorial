@@ -1,12 +1,11 @@
 import { Construct } from 'constructs';
 import { StackProps, Stack, Stage, Fn, Tags } from 'aws-cdk-lib';
 import { CodeBuildStep, CodeBuildStepProps, CodePipeline, CodePipelineSource, ManualApprovalStep } from 'aws-cdk-lib/pipelines';
-import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, 
-    getTargetEnvironmentsEnvVariablesAsObject, INNER_PIPELINE_INPUT_FOLDER,
-    makeVersionedPipelineName, DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, 
+import { TargetEnvironment, TargetEnvironments, 
+    INNER_PIPELINE_INPUT_FOLDER, makeVersionedPipelineName, DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, 
     STACK_NAME_TAG, STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName, 
     CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO, PIPELINES_BUILD_SPEC_DEF_FILE,
-    PIPELINES_POSTMAN_SPEC_DEF_FILE, StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE } from '@uniform-pipelines/model';
+    StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE } from '@uniform-pipelines/model';
 
 import { DeploymentPlan, getIndividualDeploymentPlan, getTargetEnvironmentFromIndividualDeploymentPlan } from '../../library/model/dist';
 
@@ -16,30 +15,7 @@ import { Key } from 'aws-cdk-lib/aws-kms';
 import { KmsAliasArnReaderConstruct } from '@uniform-pipelines/cdk-util';
 import { Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { CfnPipeline } from 'aws-cdk-lib/aws-codepipeline';
-import * as fs from 'fs';
-import * as yaml from 'js-yaml';
-import { BuildSpec, LinuxBuildImage, ReportGroupType } from 'aws-cdk-lib/aws-codebuild';
-
-export const fileExists = (filename: string) => {
-    try {
-        fs.accessSync(filename);
-        return true;
-    } catch (err) {
-        return false;
-    }
-};
-
-export const hasBuildSpec = () => {
-    return fileExists(PIPELINES_BUILD_SPEC_DEF_FILE);
-};
-
-export const hasPostmanSpec = () => {
-    return fileExists(PIPELINES_POSTMAN_SPEC_DEF_FILE);
-};
-
-export const hasPostmanBuildSpec = () => {
-    return fileExists(PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE);
-};
+import * as util from './inner-pipeline-util';
 
 const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
     return `deployment-${targetEnvironment.uniqueName}-${targetEnvironment.account}-${targetEnvironment.region}`;
@@ -97,7 +73,7 @@ export class PipelineStack <P extends StackProps> extends Stack {
         } : {} ;
         const stage = this.pipeline.addStage(resultStage, approval);
 
-        if (individualPlan.shouldSmokeTest && hasPostmanSpec()) {
+        if (individualPlan.shouldSmokeTest && util.hasPostmanSpec()) {
             stage.addPost(this.makePostmanCodeBuild(targetEnvironment, this.codeSource));
         }
     }
@@ -135,7 +111,7 @@ export class PipelineStack <P extends StackProps> extends Stack {
 
         this.addTransform(CHANGESET_RENAME_MACRO);
         this.addTransform(ROLE_REASSIGN_MACRO);  
-        disableTransitions(this.pipeline.pipeline.node.defaultChild as CfnPipeline, 
+        util.disableTransitions(this.pipeline.pipeline.node.defaultChild as CfnPipeline, 
             this.stagesWithtransitionsToDisable, 'Avoid manual approval expiration after one week');
 
         Tags.of(this.pipeline.pipeline).add(STACK_NAME_TAG, props.containedStackName);
@@ -188,104 +164,24 @@ export class PipelineStack <P extends StackProps> extends Stack {
     makeMainBuildStep(codeSource: CodePipelineSource) {
         const defaultBuildSpecProps = this.makeMainBuildStepDefaultBuildspec(codeSource);
         
-        const buildSpecProps = hasBuildSpec() ? overrideBuildSpecPropsFromBuildspecYamlFile(defaultBuildSpecProps, PIPELINES_BUILD_SPEC_DEF_FILE) : defaultBuildSpecProps;
+        const buildSpecProps = util.hasBuildSpec() ? util.overrideBuildSpecPropsFromBuildspecYamlFile(defaultBuildSpecProps, PIPELINES_BUILD_SPEC_DEF_FILE) : defaultBuildSpecProps;
 
         return new CodeBuildStep('synth-step', buildSpecProps);
     }
 
     makeMainBuildStepDefaultBuildspec = (codeSource: CodePipelineSource)  => {
-        return {
-            buildEnvironment: {
-                buildImage: LinuxBuildImage.STANDARD_7_0,
-            },
-            input: codeSource,
-            installCommands: [
-                'npm install -g aws-cdk',
-                `aws codeartifact login --tool npm --repository ${COMMON_REPO} --domain ${DOMAIN_NAME} --domain-owner ${TargetEnvironments.DEVOPS.account}`,
-            ],
-            commands: ['npm ci', 'npm run build', 'npx aws-cdk synth -c pipeline=true'], // Build and synthesize the CDK app
-            env: getTargetEnvironmentsEnvVariablesAsObject(),
-        };
+        return util.makeMainBuildStepDefaultBuildspec(codeSource);
     };
     
     protected makePostmanCodeBuild(targetEnvironment: TargetEnvironment, codeSource: CodePipelineSource) {
         const defaultBuildSpecProps: CodeBuildStepProps = this.makePostmanCodeBuildDefaultBuildspec(targetEnvironment, codeSource);
-        const buildSpecProps = hasPostmanBuildSpec() ? overrideBuildSpecPropsFromBuildspecYamlFile(defaultBuildSpecProps,
+        const buildSpecProps = util.hasPostmanBuildSpec() ? util.overrideBuildSpecPropsFromBuildspecYamlFile(defaultBuildSpecProps,
             PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE) : defaultBuildSpecProps;
         
         return new CodeBuildStep(`test-run-postman-${targetEnvironment.uniqueName}`, buildSpecProps);
     }
 
     makePostmanCodeBuildDefaultBuildspec (targetEnvironment: TargetEnvironment, codeSource: CodePipelineSource) {
-
-        const testReportsArn = Fn.importValue(StackExports.POSTMAN_REPORT_GROUP_ARN_REF);
-    
-        const defaultBuildSpecProps: CodeBuildStepProps = {
-            buildEnvironment: {
-                buildImage: LinuxBuildImage.STANDARD_7_0,
-            },
-            input: codeSource,
-            installCommands: [
-                `aws codeartifact login --tool npm --repository ${COMMON_REPO} --domain ${DOMAIN_NAME} --domain-owner ${TargetEnvironments.DEVOPS.account}`,
-                'npm install -g newman',
-            ],
-            commands: [
-                `echo "Running API tests at ${targetEnvironment.uniqueName}"`,
-                `newman run -r junit ${PIPELINES_POSTMAN_SPEC_DEF_FILE}`,
-            ],
-            partialBuildSpec: BuildSpec.fromObject({
-    
-                reports: {
-                    [testReportsArn]: {
-                        files: ['**/*'],
-                        'base-directory': 'newman',
-                        'discard-paths': true,
-                        type: ReportGroupType.TEST,
-                    },
-                },
-            }),
-        };
-        return defaultBuildSpecProps;
-    };
+        return util.makePostmanCodeBuildDefaultBuildspec(targetEnvironment, codeSource);
+    }
 }
-
-const disableTransitions = (pipeline: CfnPipeline, stageNames: string[], disableReason: string) => {
-    const disableTransitionsPropertyParams = stageNames.map(stageName => {
-        return {
-            Reason: disableReason,
-            StageName: stageName,
-        };
-    });
-    pipeline.addPropertyOverride("DisableInboundStageTransitions", disableTransitionsPropertyParams);
-};
-
-const overrideBuildSpecPropsFromBuildspecYamlFile = (defaultBuildSpecProps: CodeBuildStepProps, buildspecFilename: string) => {
-    const overridingObject = yaml.load(fs.readFileSync(buildspecFilename, 'utf8')) as Record<string, any>;
-
-    const buildSpecProps = { ...defaultBuildSpecProps } as any;
-
-    const installCommands = overridingObject.phases?.install?.commands;
-    if (installCommands) {
-        buildSpecProps.installCommands = installCommands;
-        delete overridingObject.phases.install.commands;
-    }
-    const buildCommands = overridingObject.phases?.build?.commands;
-    if (buildCommands) {
-        buildSpecProps.commands = buildCommands;
-        delete overridingObject.phases?.build.commands;
-    }
-
-    const baseDirectory = overridingObject.artifacts?.['base-directory'];
-    if (baseDirectory) {
-        buildSpecProps.baseDirectory = baseDirectory;
-        delete overridingObject.artifacts['base-directory'];
-    }
-
-    const buildImage = overridingObject['build-image'] as string;
-    if (buildImage && LinuxBuildImage[buildImage as keyof typeof LinuxBuildImage]) {
-        buildSpecProps.buildEnvironment.buildImage = LinuxBuildImage[buildImage as keyof typeof LinuxBuildImage];
-    }
-
-    buildSpecProps.partialBuildSpec = BuildSpec.fromObject(overridingObject);
-    return buildSpecProps;
-};
