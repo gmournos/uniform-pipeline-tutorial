@@ -5,7 +5,8 @@ import { ComplexStackSampleStack } from './complex-stack-sample-stack';
 import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments, 
     getTargetEnvironmentsEnvVariablesAsObject, StackExports,  INNER_PIPELINE_INPUT_FOLDER,
     makeVersionedPipelineName, DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, 
-    STACK_NAME_TAG, STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName, CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO } from '@uniform-pipelines/model';
+    STACK_NAME_TAG, STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName, 
+    CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO, PIPELINES_BUILD_SPEC_DEF_FILE } from '@uniform-pipelines/model';
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Key } from 'aws-cdk-lib/aws-kms';
@@ -15,7 +16,6 @@ import { CfnPipeline } from 'aws-cdk-lib/aws-codepipeline';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
-import { PIPELINES_BUILD_SPEC_DEF_FILE } from '../../library/model/dist'
 
 export const fileExists = (filename: string) => {
     try {
