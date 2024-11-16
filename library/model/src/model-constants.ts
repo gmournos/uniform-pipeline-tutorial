@@ -13,6 +13,7 @@ export const ARTIFACT_BUCKET_KEY_NAME = `${LIBRARY_NAMESPACE}-artifact-key`;
 export const ARTIFACT_BUCKET_KEY_ALIAS = `${LIBRARY_NAMESPACE}-artifact-key-alias`;
 export const OUTER_PIPELINE_NAME = 'Uniform_Outer_Pipeline';
 export const CHANGESET_RENAME_MACRO = `${LIBRARY_NAMESPACE}-changeset-rename-macro`;
+export const KMS_ALIAS_FINDER_FUNCTION = `${LIBRARY_NAMESPACE}-kms-alias-finder-function`;
 
 export enum StackExports {
     PIPELINE_SOURCE_BUCKET_ARN_REF = `${LIBRARY_NAMESPACE}-source-bucket-arn-ref`,
@@ -21,6 +22,7 @@ export enum StackExports {
     OUTER_PIPELINE_MAIN_ROLE_ARN_REF = `${LIBRARY_NAMESPACE}-outer-main-role-arn-ref`,
     OUTER_PIPELINE_ACTIONS_ROLE_ARN_REF = `${LIBRARY_NAMESPACE}-outer-actions-role-arn-ref`,
     OUTER_PIPELINE_DEPLOYMENT_ROLE_ARN_REF = `${LIBRARY_NAMESPACE}-deploymenent-role-arn-ref`,
+    KMS_FINDER_PROVIDER_REF = `${LIBRARY_NAMESPACE}-kms-provider-ref`,
 }
 
 export const STACK_NAME_TAG = `${LIBRARY_NAMESPACE}:contained-stack-name`;
@@ -32,5 +34,7 @@ export enum PipelineRoles {
     OUTER_PIPELINE_ROLE = 'outer-pipeline-role',
     OUTER_PIPELINE_ACTIONS_ROLE = 'outer-pipeline-actions-role',
     OUTER_PIPELINE_DEPLOYMENT_ROLE = 'outer-pipeline-deployment-deployment-role',
+    KMS_FINDER_FUNCTION_ROLE =`${LIBRARY_NAMESPACE}-kms-finder-role`,
+    KMS_FINDER_PROVIDER_ROLE =`${LIBRARY_NAMESPACE}-kms-finder-provider-role`, 
 };
 
