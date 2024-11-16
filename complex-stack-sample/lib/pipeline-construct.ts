@@ -6,8 +6,9 @@ import { COMMON_REPO, DOMAIN_NAME, TargetEnvironment, TargetEnvironments,
     getTargetEnvironmentsEnvVariablesAsObject, INNER_PIPELINE_INPUT_FOLDER,
     makeVersionedPipelineName, DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, 
     STACK_NAME_TAG, STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName, 
-    CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO, PIPELINES_BUILD_SPEC_DEF_FILE } from '@uniform-pipelines/model';
-import { PIPELINES_POSTMAN_SPEC_DEF_FILE, StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE } from '../../library/model/dist';
+    CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO, PIPELINES_BUILD_SPEC_DEF_FILE,
+    PIPELINES_POSTMAN_SPEC_DEF_FILE, StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE } from '@uniform-pipelines/model';
+
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Key } from 'aws-cdk-lib/aws-kms';
