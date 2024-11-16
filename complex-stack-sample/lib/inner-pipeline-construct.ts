@@ -2,19 +2,17 @@ import { Construct } from 'constructs';
 import { StackProps, Stack, Stage, Fn, Tags } from 'aws-cdk-lib';
 import { CodeBuildStep, CodeBuildStepProps, CodePipeline, CodePipelineSource, ManualApprovalStep } from 'aws-cdk-lib/pipelines';
 import { TargetEnvironment, TargetEnvironments, 
-    INNER_PIPELINE_INPUT_FOLDER, makeVersionedPipelineName, DEPLOYER_STACK_NAME_TAG, STACK_DEPLOYED_AT_TAG, 
-    STACK_NAME_TAG, STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName, 
-    CHANGESET_RENAME_MACRO, ROLE_REASSIGN_MACRO, PIPELINES_BUILD_SPEC_DEF_FILE,
-    StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE } from '@uniform-pipelines/model';
+    INNER_PIPELINE_INPUT_FOLDER, makeVersionedPipelineName, STACK_DEPLOYED_AT_TAG, 
+    STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName, 
+    PIPELINES_BUILD_SPEC_DEF_FILE, StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE } from '@uniform-pipelines/model';
 
-import { DeploymentPlan, getIndividualDeploymentPlan, getTargetEnvironmentFromIndividualDeploymentPlan } from '../../library/model/dist';
+import { getIndividualDeploymentPlan } from '../../library/model/dist';
 
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Key } from 'aws-cdk-lib/aws-kms';
 import { KmsAliasArnReaderConstruct } from '@uniform-pipelines/cdk-util';
 import { Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
-import { CfnPipeline } from 'aws-cdk-lib/aws-codepipeline';
 import * as util from './inner-pipeline-util';
 
 const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
@@ -23,19 +21,19 @@ const makeDeploymentStageName = (targetEnvironment: TargetEnvironment) => {
 
 export type ContainedStackClassConstructor<P extends StackProps = StackProps> = new(c: Construct, id: string, p: P) => Stack;
 
-export interface PipelineStackProps<P extends StackProps = StackProps> extends StackProps {
+export interface InnerPipelineConstructProps<P extends StackProps = StackProps> {
     containedStackProps?: P;
     containedStackName: string;
     containedStackVersion: string;
     containedStackClass: ContainedStackClassConstructor<P>,
 }
 
-export class PipelineStack <P extends StackProps> extends Stack {
-    protected readonly pipeline: CodePipeline;
-    protected readonly codeSource: CodePipelineSource;
-    protected readonly stagesWithtransitionsToDisable: string[] = []; 
+export class InnerPipelineConstruct <P extends StackProps> extends Construct {
+    readonly pipeline: CodePipeline;
+    readonly codeSource: CodePipelineSource;
+    readonly stagesWithtransitionsToDisable: string[] = []; 
     
-    public createDeploymentStage(scope: Construct, targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps<P>) {
+    public createDeploymentStage(scope: Construct, targetEnvironment: TargetEnvironment, pipelineStackProps: InnerPipelineConstructProps<P>) {
             
         class DeploymentStage extends Stage {
             readonly containedStack: Stack;
@@ -78,15 +76,15 @@ export class PipelineStack <P extends StackProps> extends Stack {
         }
     }
 
-    protected makeManualApprovalStep(targetEnvironment: TargetEnvironment, pipelineStackProps: PipelineStackProps<P>) {
+    protected makeManualApprovalStep(targetEnvironment: TargetEnvironment, pipelineStackProps: InnerPipelineConstructProps<P>) {
         
         return new ManualApprovalStep(`${pipelineStackProps.containedStackName}-approval-promote-to-${targetEnvironment.uniqueName}`, {
             comment: `Approve to deploy to ${targetEnvironment.uniqueName}`,
         });
     }
 
-    constructor(scope: Construct, id: string, props: PipelineStackProps<P>) {
-        super(scope, id, props);
+    constructor(scope: Construct, id: string, props: InnerPipelineConstructProps<P>) {
+        super(scope, id);
 
         const sourceBucket = Bucket.fromBucketAttributes(this, 'pipeline-source-bucket', {
             bucketArn: Fn.importValue(StackExports.PIPELINE_SOURCE_BUCKET_ARN_REF),
@@ -101,26 +99,9 @@ export class PipelineStack <P extends StackProps> extends Stack {
             // Define the synthesis step
             synth: this.makeMainBuildStep(this.codeSource),
         });
-
-        DeploymentPlan.forEach( individualPlan => {
-            const targetEnvironment = getTargetEnvironmentFromIndividualDeploymentPlan(individualPlan, TargetEnvironments);
-            this.createDeploymentStage(this, targetEnvironment, props);
-        });
-
-        this.pipeline.buildPipeline();
-
-        this.addTransform(CHANGESET_RENAME_MACRO);
-        this.addTransform(ROLE_REASSIGN_MACRO);  
-        util.disableTransitions(this.pipeline.pipeline.node.defaultChild as CfnPipeline, 
-            this.stagesWithtransitionsToDisable, 'Avoid manual approval expiration after one week');
-
-        Tags.of(this.pipeline.pipeline).add(STACK_NAME_TAG, props.containedStackName);
-        Tags.of(this.pipeline.pipeline).add(STACK_VERSION_TAG, props.containedStackVersion);
-        Tags.of(this.pipeline.pipeline).add(DEPLOYER_STACK_NAME_TAG, this.stackName);
     }
 
-    
-    createCrossRegionReplicationsBase(props: PipelineStackProps<P>) {
+    createCrossRegionReplicationsBase(props: InnerPipelineConstructProps<P>) {
         const encryptionKey = Key.fromKeyArn(
             this,
             'artifact-bucket-key-arn',
