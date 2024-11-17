@@ -4,7 +4,8 @@ import { CodeBuildStep, CodeBuildStepProps, CodePipeline, CodePipelineSource, Ma
 import { TargetEnvironment, TargetEnvironments, 
     INNER_PIPELINE_INPUT_FOLDER, makeVersionedPipelineName, STACK_DEPLOYED_AT_TAG, 
     STACK_VERSION_TAG, getSupportBucketName, getCrossRegionTargetEnvironments, getSupportKeyAliasName, 
-    PIPELINES_BUILD_SPEC_DEF_FILE, StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE, getIndividualDeploymentPlan } from '@uniform-pipelines/model';
+    PIPELINES_BUILD_SPEC_DEF_FILE, StackExports, PIPELINES_BUILD_SPEC_POSTMAN_DEF_FILE, getIndividualDeploymentPlan, 
+    getAspectContextVars} from '@uniform-pipelines/model';
 
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
@@ -46,6 +47,13 @@ export class InnerPipelineConstruct <P extends ContainedStackPropsType> extends 
                     stageName: makeDeploymentStageName(targetEnvironment),
 
                 });
+
+                const contextVars = getAspectContextVars(targetEnvironment, TargetEnvironments);
+                if (contextVars) {
+                    for (const [key, value] of contextVars.entries()) {
+                        this.node.setContext(key, value);
+                    }
+                }
                 this.containedStack = new pipelineStackProps.containedStackClass(this, 'target-stack', {
             
                     ...pipelineStackProps.containedStackProps,
