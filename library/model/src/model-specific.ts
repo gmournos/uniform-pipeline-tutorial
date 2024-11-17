@@ -13,3 +13,9 @@ export const DeploymentPlan: IndividualDeploymentPlanProps[] = [
     { targetEnvironmentKey: EnvironmentName.ACCEPTANCE, requiresApproval: true, shouldSmokeTest: true },
     { targetEnvironmentKey: EnvironmentName.PRODUCTION, requiresApproval: true, shouldSmokeTest: false },
 ];
+
+export const AscpectContextVars: Record<string, Record<string,any>> ={
+    GLOBAL: { logRetention: 365},
+    TEST: { logRetetion: 30},
+    ACCEPTANCE : { logRetention: 90},
+}

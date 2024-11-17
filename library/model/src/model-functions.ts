@@ -135,6 +135,28 @@ export const getIndividualDeploymentPlan = (targetEnvironment: types.TargetEnvir
     return deploymentPlans[0];
 }
 
+
+export const getAspectContextVars = (targetEnvironment: types.TargetEnvironment, targetEnviroments: types.TargetEnvironmentsType) => {
+    const targetEnvironmentKeys = Object.entries(targetEnviroments)
+        .filter( ([_, environment]) => environment.uniqueName === targetEnvironment.uniqueName)
+        .map(([accountKey, _]) => accountKey);
+    if (targetEnvironmentKeys.length !== 1) {
+        throw new Error('Environment not found');
+    }
+    const targetEnvironmentKey = targetEnvironmentKeys[0];
+
+    const globalAscpectContextVars = specifics.AscpectContextVars.GLOBAL;
+    const envSepcificAspectContextVarsArray = Object.entries(specifics.AscpectContextVars)
+        .filter( ([environmentKey, _]) => environmentKey === targetEnvironmentKey)
+        .map(([, contextVars]) => contextVars);
+    if (envSepcificAspectContextVarsArray.length > 1) {
+        throw new Error('Too many Environments found');
+    }
+
+    const envSepcificAspectContextVars = envSepcificAspectContextVarsArray.length == 1 ? envSepcificAspectContextVarsArray[0] : {};
+    return { ...globalAscpectContextVars, ...envSepcificAspectContextVars};
+}
+
 export const getTargetEnvironmentFromIndividualDeploymentPlan = (individualDeploymentPlan: types.IndividualDeploymentPlanProps, targetEnviroments: types.TargetEnvironmentsType): types.TargetEnvironment => {
     const targetEnvironmentKey = individualDeploymentPlan.targetEnvironmentKey as any;
 
