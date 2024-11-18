@@ -1,4 +1,4 @@
-import { CLEANUP_DELETE_BATCH_SIZE, PipelineStackPair, ProgressStatus } from '../../../library/model/dist';
+import { CLEANUP_DELETE_BATCH_SIZE, PipelineStackPair, ProgressStatus } from '@uniform-pipelines/model';
 import { deleteCloudFormationStack } from './utils';
 
 export const batchDeleteStacks = async (event: ProgressStatus<PipelineStackPair>) : Promise<ProgressStatus<PipelineStackPair>> => {

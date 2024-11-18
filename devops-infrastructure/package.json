@@ -15,9 +15,9 @@
     "@types/jest": "^29.5.14",
     "@types/luxon": "^3.4.2",
     "@types/node": "22.8.4",
-    "@uniform-pipelines/cdk-util": "^3.0.0",
-    "@uniform-pipelines/model": "^8.0.0",
     "@types/semver": "^7.5.8",
+    "@uniform-pipelines/cdk-util": "^3.0.0",
+    "@uniform-pipelines/model": "^10.0.0",
     "aws-cdk": "2.164.1",
     "aws-cdk-lib": "2.164.1",
     "constructs": "^10.4.2",
@@ -26,10 +26,9 @@
     "typescript": "~5.6.3"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.682.0",
     "@aws-sdk/client-codepipeline": "^3.682.0",
     "@aws-sdk/client-kms": "^3.693.0",
-    "@aws-sdk/client-cloudformation": "^3.682.0",
-    "@aws-sdk/client-cloudformation": "^3.682.0",
     "luxon": "^3.5.0",
     "semver": "^7.6.3"
   }

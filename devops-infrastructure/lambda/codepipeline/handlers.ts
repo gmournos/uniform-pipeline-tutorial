@@ -1,7 +1,7 @@
 import { CodePipelineClient, PipelineExecutionStatus, StartPipelineExecutionCommand } from '@aws-sdk/client-codepipeline';
 import { filterTagsToMap, getPipelineArn, getPipelineLastExecutionStatus, getPipelineTags, listPipelines } from './utils';
-import { DEPLOYER_STACK_NAME_TAG, STACK_NAME_TAG, STACK_VERSION_TAG, LIBRARY_NAMESPACE } from '@uniform-pipelines/model';
-import { PipelineStackPair, ProgressStatus, CLEANUP_MAX_HISTORY_LENGTH, CLEANUP_HISTORY_MONTHS_LENGTH } from '../../../library/model/dist';
+import { DEPLOYER_STACK_NAME_TAG, STACK_NAME_TAG, STACK_VERSION_TAG, PipelineStackPair, ProgressStatus, 
+    CLEANUP_MAX_HISTORY_LENGTH, CLEANUP_HISTORY_MONTHS_LENGTH, LIBRARY_NAMESPACE } from '@uniform-pipelines/model';
 import * as semver from 'semver';
 import { DateTime } from 'luxon';
 

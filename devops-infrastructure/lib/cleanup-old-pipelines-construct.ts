@@ -7,7 +7,7 @@ import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { BatchProcessingStepFunctionConstruct } from './detector-batch-consumer-step-function-construct';
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { SfnStateMachine } from 'aws-cdk-lib/aws-events-targets';
-import { CLEANUP_DELETE_PROCESS_SCHEDULE, getTargetEnvironmentsEnvVariablesAsObject } from '../../library/model';
+import { CLEANUP_DELETE_PROCESS_SCHEDULE, getTargetEnvironmentsEnvVariablesAsObject } from '@uniform-pipelines/model';
 
 export class CleanupOldPipelinesConstruct extends Construct {
     constructor(scope: Construct, id: string) {

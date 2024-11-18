@@ -3,7 +3,7 @@ import { IFunction } from 'aws-cdk-lib/aws-lambda';
 import { Choice, Condition, DefinitionBody, StateMachine, Succeed, Wait, WaitTime } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
-import { CLEANUP_DELETE_PROCESS_TIMEOUT_MINUTES, CLEANUP_MINUTES_BETWEEN_DELETES } from '../../library/model';
+import { CLEANUP_DELETE_PROCESS_TIMEOUT_MINUTES, CLEANUP_MINUTES_BETWEEN_DELETES } from '@uniform-pipelines/model';
 
 interface BatchProcessingStepFunctionConstructProps {
     detectorLambda: IFunction;
