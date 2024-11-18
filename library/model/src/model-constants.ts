@@ -29,7 +29,7 @@ export const CLEANUP_MAX_HISTORY_LENGTH = 7;
 export const CLEANUP_DELETE_BATCH_SIZE = 5;
 export const CLEANUP_MINUTES_BETWEEN_DELETES = 3;
 export const CLEANUP_DELETE_PROCESS_TIMEOUT_MINUTES = 60; // 1 hour
-
+export const CLEANUP_DELETE_PROCESS_SCHEDULE = 'cron(0 1 * * ? *)';
 
 export enum StackExports {
     PIPELINE_SOURCE_BUCKET_ARN_REF = `${LIBRARY_NAMESPACE}-source-bucket-arn-ref`,
